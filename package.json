@@ -1,0 +1,18 @@
+{
+  "name": "forgeinsights-ai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Decision intelligence and enterprise knowledge platform",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "echo \"Workspace bootstrapped. Add app-specific dev scripts next.\"",
+    "lint": "echo \"Add linting in next phase\"",
+    "test": "echo \"Add tests in next phase\"",
+    "build": "echo \"Add builds in next phase\"",
+    "format": "echo \"Add formatting in next phase\""
+  }
+}
