@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { auditRouter } from '../../modules/audit/audit.routes.js';
+import { authRouter } from '../../modules/auth/auth.routes.js';
 import { documentsRouter } from '../../modules/documents/documents.routes.js';
 import { organizationsRouter } from '../../modules/organizations/organizations.routes.js';
 import { sourcesRouter } from '../../modules/sources/sources.routes.js';
@@ -13,6 +14,7 @@ apiRouter.get('/', (_req, res) => {
   });
 });
 
+apiRouter.use('/auth', authRouter);
 apiRouter.use('/organizations', organizationsRouter);
 apiRouter.use('/sources', sourcesRouter);
 apiRouter.use('/documents', documentsRouter);
