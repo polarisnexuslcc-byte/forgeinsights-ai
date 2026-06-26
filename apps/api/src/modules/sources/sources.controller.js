@@ -1,4 +1,5 @@
 import { created, fail, ok } from '../../server/utils/response.js';
+import { writeAuditLog } from '../audit/audit.service.js';
 import {
   connectSource,
   createManualSyncJob,
@@ -40,6 +41,21 @@ export function createSourceHandler(req, res) {
 
   try {
     const item = createSource(parsed.value);
+
+    writeAuditLog({
+      organizationId: item.organizationId,
+      sourceId: item.id,
+      eventType: 'source.created',
+      entityType: 'source',
+      entityId: item.id,
+      message: `Source created: ${item.name}`,
+      metadata: {
+        provider: item.provider,
+        category: item.category
+      },
+      req
+    });
+
     return created(res, { item });
   } catch (error) {
     if (String(error.message || '').includes('UNIQUE')) {
@@ -69,6 +85,19 @@ export function connectSourceHandler(req, res) {
     parsed.value.payload
   );
 
+  writeAuditLog({
+    organizationId: item.organizationId,
+    sourceId: item.id,
+    eventType: 'source.connected',
+    entityType: 'source',
+    entityId: item.id,
+    message: `Source connected: ${item.name}`,
+    metadata: {
+      credentialType: parsed.value.credentialType
+    },
+    req
+  });
+
   return ok(res, { item });
 }
 
@@ -80,6 +109,20 @@ export function syncSourceHandler(req, res) {
   }
 
   const job = createManualSyncJob(source.id, source.organizationId);
+
+  writeAuditLog({
+    organizationId: source.organizationId,
+    sourceId: source.id,
+    eventType: 'source.sync_requested',
+    entityType: 'sync_job',
+    entityId: job.id,
+    message: `Manual sync requested for source: ${source.name}`,
+    metadata: {
+      jobType: job.jobType,
+      sourceId: source.id
+    },
+    req
+  });
 
   return created(res, {
     job
