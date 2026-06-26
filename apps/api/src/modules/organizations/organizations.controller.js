@@ -1,4 +1,5 @@
 import { created, fail, ok } from '../../server/utils/response.js';
+import { writeAuditLog } from '../audit/audit.service.js';
 import {
   createOrganization,
   getOrganizationById,
@@ -8,7 +9,6 @@ import { validateCreateOrganizationInput } from './organizations.validators.js';
 
 export function listOrganizationsHandler(_req, res) {
   const items = listOrganizations();
-
   return ok(res, { items });
 }
 
@@ -31,6 +31,19 @@ export function createOrganizationHandler(req, res) {
 
   try {
     const item = createOrganization(parsed.value);
+
+    writeAuditLog({
+      organizationId: item.id,
+      eventType: 'organization.created',
+      entityType: 'organization',
+      entityId: item.id,
+      message: `Organization created: ${item.name}`,
+      metadata: {
+        slug: item.slug
+      },
+      req
+    });
+
     return created(res, { item });
   } catch (error) {
     if (String(error.message || '').includes('UNIQUE')) {
