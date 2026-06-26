@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import { router } from './routes/index.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
 import { requestLoggerMiddleware } from './middleware/request-logger.js';
+import { requestContextMiddleware } from './middleware/request-context.js';
 import { notFoundMiddleware } from './middleware/not-found.js';
 import { errorHandlerMiddleware } from './middleware/error-handler.js';
 
@@ -17,6 +18,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
 app.use(requestLoggerMiddleware);
+app.use(requestContextMiddleware);
 app.use(morgan('dev'));
 
 app.use(router);
