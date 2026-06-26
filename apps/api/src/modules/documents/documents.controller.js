@@ -1,4 +1,5 @@
 import { created, fail, ok } from '../../server/utils/response.js';
+import { writeAuditLog } from '../audit/audit.service.js';
 import {
   createDocument,
   createDocumentVersion,
@@ -44,6 +45,21 @@ export function createDocumentHandler(req, res) {
   }
 
   const item = createDocument(parsed.value);
+
+  writeAuditLog({
+    organizationId: item.organizationId,
+    sourceId: item.sourceId,
+    eventType: 'document.created',
+    entityType: 'document',
+    entityId: item.id,
+    message: `Document created: ${item.title}`,
+    metadata: {
+      documentType: item.documentType,
+      visibility: item.visibility
+    },
+    req
+  });
+
   return created(res, { item });
 }
 
@@ -61,6 +77,22 @@ export function createDocumentVersionHandler(req, res) {
   }
 
   const item = createDocumentVersion(req.params.id, parsed.value);
+
+  writeAuditLog({
+    organizationId: document.organizationId,
+    sourceId: document.sourceId,
+    eventType: 'document.version_created',
+    entityType: 'document_version',
+    entityId: item.id,
+    message: `Document version created for: ${document.title}`,
+    metadata: {
+      documentId: document.id,
+      versionNumber: item.versionNumber,
+      storagePath: item.storagePath
+    },
+    req
+  });
+
   return created(res, { item });
 }
 
@@ -72,6 +104,19 @@ export function reindexDocumentHandler(req, res) {
   }
 
   const item = markDocumentForReindex(req.params.id);
+
+  writeAuditLog({
+    organizationId: document.organizationId,
+    sourceId: document.sourceId,
+    eventType: 'document.reindex_requested',
+    entityType: 'document',
+    entityId: document.id,
+    message: `Document reindex requested: ${document.title}`,
+    metadata: {
+      previousStatus: document.status
+    },
+    req
+  });
 
   return ok(res, { item });
 }
