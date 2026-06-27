@@ -54,12 +54,18 @@ export function applyPerDocumentCap(items, maxPerDocument) {
   return filtered;
 }
 
-export function rerankWithDiversity(items, limit) {
-  if (!env.RETRIEVAL_ENABLE_DIVERSITY_RERANK || items.length <= 1) {
+export function rerankWithDiversity(items, limit, options = {}) {
+  const enabled = options.enabled ?? env.RETRIEVAL_ENABLE_DIVERSITY_RERANK;
+
+  if (!enabled || items.length <= 1) {
     return items.slice(0, limit);
   }
 
-  const lambda = Math.min(Math.max(env.RETRIEVAL_DIVERSITY_LAMBDA, 0), 1);
+  const lambda = Math.min(
+    Math.max(options.lambda ?? env.RETRIEVAL_DIVERSITY_LAMBDA, 0),
+    1
+  );
+
   const selected = [];
   const remaining = [...items];
 
