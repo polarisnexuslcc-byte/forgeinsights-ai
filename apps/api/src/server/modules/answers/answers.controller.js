@@ -5,6 +5,8 @@ import { answerQuestion } from './answers.service.js';
 export async function askAnswerHandler(req, res, next) {
   try {
     const question = String(req.body?.question || '').trim();
+    const documentId = req.body?.documentId ? String(req.body.documentId) : null;
+    const sourceId = req.body?.sourceId ? String(req.body.sourceId) : null;
 
     if (!question) {
       return fail(res, 400, 'question is required');
@@ -12,7 +14,9 @@ export async function askAnswerHandler(req, res, next) {
 
     const result = await answerQuestion({
       organizationId: req.auth.organizationId,
-      question
+      question,
+      documentId,
+      sourceId
     });
 
     writeAuditLog({
@@ -25,7 +29,10 @@ export async function askAnswerHandler(req, res, next) {
       metadata: {
         grounded: result.grounded,
         retrievalCount: result.retrievalCount,
-        citationCount: result.citations.length
+        citationCount: result.citations.length,
+        usedRewrite: result.usedRewrite,
+        filteredByDocument: Boolean(documentId),
+        filteredBySource: Boolean(sourceId)
       },
       req
     });
