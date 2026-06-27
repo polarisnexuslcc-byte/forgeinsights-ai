@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ForgeInsights Dashboard</title>
+  <style>
+    :root {
+      --bg: #f7f6f2;
+      --surface: #ffffff;
+      --text: #1f1f1f;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --ok: #166534;
+      --warn: #b45309;
+      --bad: #b91c1c;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    h1 { margin: 0; font-size: 28px; }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .metric {
+      font-size: 28px;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+    .wide {
+      grid-column: span 2;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .healthy { color: var(--ok); font-weight: 700; }
+    .warning { color: var(--warn); font-weight: 700; }
+    .critical { color: var(--bad); font-weight: 700; }
+    ul {
+      padding-left: 18px;
+      margin: 8px 0 0;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .wide { grid-column: span 2; }
+    }
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      .wide { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Panel ejecutivo</h1>
+        <div class="muted" id="updatedAt">Cargando...</div>
+      </div>
+      <div id="healthBadge" class="healthy">Salud: healthy</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="muted">Token de acceso</div>
+      <input id="tokenInput" type="password" placeholder="Pega aquí el Bearer token"
+        style="width:100%;margin-top:8px;padding:12px;border:1px solid #ddd;border-radius:10px;box-sizing:border-box;" />
+      <button id="loadButton" style="margin-top:10px;padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;">
+        Cargar panel
+      </button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="muted">Documentos</div>
+        <div class="metric" id="totalDocuments">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Chunks</div>
+        <div class="metric" id="totalChunks">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Consultas 24h</div>
+        <div class="metric" id="totalRuns24h">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Coste 24h</div>
+        <div class="metric" id="totalCostUsd24h">—</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="muted">Latencia media</div>
+        <div class="metric" id="avgLatencyMs">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Latencia p95</div>
+        <div class="metric" id="p95LatencyMs">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Error rate</div>
+        <div class="metric" id="errorRate">—</div>
+      </div>
+      <div class="card">
+        <div class="muted">Alertas activas</div>
+        <div class="metric" id="alertCount">—</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card wide">
+        <div><strong>Alertas</strong></div>
+        <ul id="alertsList"><li class="muted">Sin datos</li></ul>
+      </div>
+      <div class="card wide">
+        <div><strong>Estado documental</strong></div>
+        <table>
+          <tbody>
+            <tr><td>Procesados</td><td id="processedDocuments">—</td></tr>
+            <tr><td>Pendientes</td><td id="uploadedDocuments">—</td></tr>
+            <tr><td>Tokens 24h</td><td id="totalTokens24h">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><strong>Actividad reciente</strong></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Pregunta</th>
+            <th>Estado</th>
+            <th>Latencia</th>
+            <th>Coste</th>
+          </tr>
+        </thead>
+        <tbody id="recentRunsBody"><tr><td colspan="5" class="muted">Sin datos</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function loadDashboard() {
+      const token = document.getElementById('tokenInput').value.trim();
+
+      if (!token) {
+        throw new Error('Por favor, introduce un token de acceso');
+      }
+
+      const res = await fetch('/api/dashboard', {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error('No se pudo cargar el dashboard (' + res.status + ')');
+      }
+
+      const data = await res.json();
+      const item = data.item;
+
+      document.getElementById('updatedAt').textContent =
+        'Actualizado: ' + new Date(item.generatedAt).toLocaleString();
+
+      const healthBadge = document.getElementById('healthBadge');
+      healthBadge.textContent = 'Salud: ' + item.health.status;
+      healthBadge.className = item.health.status;
+
+      document.getElementById('totalDocuments').textContent = item.documents.totalDocuments;
+      document.getElementById('totalChunks').textContent = item.chunks.totalChunks;
+      document.getElementById('totalRuns24h').textContent = item.usage.totalRuns24h;
+      document.getElementById('totalCostUsd24h').textContent = '$' + item.usage.totalCostUsd24h;
+      document.getElementById('avgLatencyMs').textContent = item.observability.metrics.avgLatencyMs + ' ms';
+      document.getElementById('p95LatencyMs').textContent = item.observability.metrics.p95LatencyMs + ' ms';
+      document.getElementById('errorRate').textContent = (item.observability.metrics.errorRate * 100).toFixed(1) + '%';
+      document.getElementById('alertCount').textContent = item.health.alertCount;
+      document.getElementById('processedDocuments').textContent = item.documents.processedDocuments;
+      document.getElementById('uploadedDocuments').textContent = item.documents.uploadedDocuments;
+      document.getElementById('totalTokens24h').textContent = item.usage.totalTokens24h;
+
+      const alertsList = document.getElementById('alertsList');
+      alertsList.innerHTML = '';
+      if (!item.observability.alerts.length) {
+        const li = document.createElement('li');
+        li.textContent = 'Sin alertas activas';
+        alertsList.appendChild(li);
+      } else {
+        item.observability.alerts.forEach(function(alert) {
+          const li = document.createElement('li');
+          li.textContent = alert.level.toUpperCase() + ': ' + alert.message;
+          alertsList.appendChild(li);
+        });
+      }
+
+      const recentRunsBody = document.getElementById('recentRunsBody');
+      recentRunsBody.innerHTML = '';
+      if (!item.recentRuns.length) {
+        recentRunsBody.innerHTML = '<tr><td colspan="5" class="muted">Sin actividad reciente</td></tr>';
+      } else {
+        item.recentRuns.forEach(function(run) {
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + new Date(run.createdAt).toLocaleString() + '</td>' +
+            '<td>' + (run.question || '-') + '</td>' +
+            '<td>' + run.status + '</td>' +
+            '<td>' + run.totalLatencyMs + ' ms</td>' +
+            '<td>$' + Number(run.estimatedCostUsd || 0).toFixed(6) + '</td>';
+          recentRunsBody.appendChild(tr);
+        });
+      }
+    }
+
+    document.getElementById('loadButton').addEventListener('click', function() {
+      loadDashboard().catch(function(error) {
+        alert(error.message);
+      });
+    });
+  </script>
+</body>
+</html>
