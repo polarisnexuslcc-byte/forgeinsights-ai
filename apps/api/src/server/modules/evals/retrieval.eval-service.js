@@ -39,7 +39,9 @@ function buildRelevanceScores(relevantIds) {
 export async function evaluateRetrievalVariant({
   organizationId,
   k = 5,
-  useReranking = true
+  useReranking = true,
+  useHybrid = false,
+  label = 'variant'
 }) {
   const evalSet = loadEvalSet();
   const perQuery = [];
@@ -49,11 +51,11 @@ export async function evaluateRetrievalVariant({
       organizationId,
       query: sample.question,
       limit: k,
-      useReranking
+      useReranking,
+      useHybrid
     });
 
-    const useChunkLabels =
-      Array.isArray(sample.relevantChunkIds) && sample.relevantChunkIds.length > 0;
+    const useChunkLabels = Array.isArray(sample.relevantChunkIds) && sample.relevantChunkIds.length > 0;
 
     const retrievedIds = useChunkLabels
       ? mapChunkResults(result.items)
@@ -80,8 +82,13 @@ export async function evaluateRetrievalVariant({
   }
 
   return {
+    label,
     k,
     queryCount: perQuery.length,
+    settings: {
+      useReranking,
+      useHybrid
+    },
     metrics: {
       hitRateAtK: average(perQuery.map((item) => item.metrics.hitRate)),
       recallAtK: average(perQuery.map((item) => item.metrics.recall)),
@@ -92,28 +99,47 @@ export async function evaluateRetrievalVariant({
   };
 }
 
+function subtractMetrics(candidate, baseline) {
+  return {
+    hitRateAtK: candidate.metrics.hitRateAtK - baseline.metrics.hitRateAtK,
+    recallAtK: candidate.metrics.recallAtK - baseline.metrics.recallAtK,
+    mrr: candidate.metrics.mrr - baseline.metrics.mrr,
+    ndcgAtK: candidate.metrics.ndcgAtK - baseline.metrics.ndcgAtK
+  };
+}
+
 export async function compareRetrievalVariants({ organizationId, k = 5 }) {
-  const baseline = await evaluateRetrievalVariant({
+  const lexical = await evaluateRetrievalVariant({
     organizationId,
     k,
-    useReranking: false
+    useReranking: false,
+    useHybrid: false,
+    label: 'lexical'
   });
 
-  const reranked = await evaluateRetrievalVariant({
+  const lexicalReranked = await evaluateRetrievalVariant({
     organizationId,
     k,
-    useReranking: true
+    useReranking: true,
+    useHybrid: false,
+    label: 'lexical_reranked'
+  });
+
+  const hybridReranked = await evaluateRetrievalVariant({
+    organizationId,
+    k,
+    useReranking: true,
+    useHybrid: true,
+    label: 'hybrid_reranked'
   });
 
   return {
     k,
-    baseline,
-    reranked,
-    delta: {
-      hitRateAtK: reranked.metrics.hitRateAtK - baseline.metrics.hitRateAtK,
-      recallAtK: reranked.metrics.recallAtK - baseline.metrics.recallAtK,
-      mrr: reranked.metrics.mrr - baseline.metrics.mrr,
-      ndcgAtK: reranked.metrics.ndcgAtK - baseline.metrics.ndcgAtK
+    variants: [lexical, lexicalReranked, hybridReranked],
+    deltas: {
+      lexical_reranked_vs_lexical: subtractMetrics(lexicalReranked, lexical),
+      hybrid_reranked_vs_lexical: subtractMetrics(hybridReranked, lexical),
+      hybrid_reranked_vs_lexical_reranked: subtractMetrics(hybridReranked, lexicalReranked)
     }
   };
 }
