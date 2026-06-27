@@ -2,6 +2,8 @@ import { env } from '../../config/env.js';
 import { maybeRewriteQuery } from './retrieval.query-rewriter.js';
 import { searchChunks } from './retrieval.repository.js';
 import { applyPerDocumentCap, rerankWithDiversity } from './retrieval.rerank.js';
+import { searchSemanticChunks } from './retrieval.semantic.js';
+import { reciprocalRankFusion } from './retrieval.hybrid.js';
 
 function dedupeChunks(items) {
   const seen = new Set();
@@ -22,11 +24,12 @@ export async function runRetrievalSearch({
   limit = 5,
   documentId = null,
   sourceId = null,
-  useReranking = env.RETRIEVAL_ENABLE_DIVERSITY_RERANK
+  useReranking = env.RETRIEVAL_ENABLE_DIVERSITY_RERANK,
+  useHybrid = env.HYBRID_ENABLE_SEMANTIC
 }) {
   const rewrite = await maybeRewriteQuery(query);
 
-  const originalResults = searchChunks({
+  const lexicalOriginal = searchChunks({
     organizationId,
     query: rewrite.originalQuery,
     limit: env.RETRIEVAL_MAX_CANDIDATES,
@@ -34,7 +37,7 @@ export async function runRetrievalSearch({
     sourceId
   });
 
-  const rewrittenResults = rewrite.usedRewrite
+  const lexicalRewrite = rewrite.usedRewrite
     ? searchChunks({
         organizationId,
         query: rewrite.rewrittenQuery,
@@ -44,12 +47,26 @@ export async function runRetrievalSearch({
       })
     : [];
 
-  const merged = dedupeChunks(
-    [...originalResults, ...rewrittenResults].sort((a, b) => a.score - b.score)
+  const lexicalMerged = dedupeChunks(
+    [...lexicalOriginal, ...lexicalRewrite].sort((a, b) => a.score - b.score)
   );
 
+  const semanticResults = useHybrid
+    ? await searchSemanticChunks({
+        organizationId,
+        query: rewrite.rewrittenQuery || rewrite.originalQuery,
+        limit: env.HYBRID_SEMANTIC_CANDIDATES,
+        documentId,
+        sourceId
+      })
+    : [];
+
+  const hybrid = useHybrid
+    ? reciprocalRankFusion([lexicalMerged, semanticResults], env.RETRIEVAL_MAX_CANDIDATES)
+    : lexicalMerged.slice(0, env.RETRIEVAL_MAX_CANDIDATES);
+
   const capped = applyPerDocumentCap(
-    merged,
+    hybrid,
     env.RETRIEVAL_MAX_CHUNKS_PER_DOCUMENT
   );
 
@@ -61,6 +78,10 @@ export async function runRetrievalSearch({
     query: rewrite.originalQuery,
     rewrittenQuery: rewrite.rewrittenQuery,
     usedRewrite: rewrite.usedRewrite,
+    lexicalCount: lexicalMerged.length,
+    semanticCount: semanticResults.length,
+    useHybrid,
+    useReranking,
     items: reranked
   };
 }
