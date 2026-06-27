@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { answersRouter } from '../modules/answers/answers.routes.js';
 import { auditRouter } from '../../modules/audit/audit.routes.js';
 import { authRouter } from '../../modules/auth/auth.routes.js';
 import { documentsRouter } from '../../modules/documents/documents.routes.js';
@@ -21,3 +22,4 @@ apiRouter.use('/sources', sourcesRouter);
 apiRouter.use('/documents', documentsRouter);
 apiRouter.use('/audit-logs', auditRouter);
 apiRouter.use('/retrieval', retrievalRouter);
+apiRouter.use('/answers', answersRouter);
