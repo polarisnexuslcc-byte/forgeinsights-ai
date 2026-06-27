@@ -78,7 +78,13 @@ export async function searchRetrievalHandler(req, res, next) {
       sourceId
     });
 
-    return ok(res, result);
+    return ok(res, {
+      query: result.query,
+      rewrittenQuery: result.rewrittenQuery,
+      usedRewrite: result.usedRewrite,
+      itemCount: result.items.length,
+      items: result.items
+    });
   } catch (error) {
     next(error);
   }
