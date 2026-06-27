@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 import { openai } from '../../lib/openai.js';
-import { searchChunks } from '../retrieval/retrieval.repository.js';
+import { runRetrievalSearch } from '../retrieval/retrieval.search-service.js';
 
 function buildContext(chunks) {
   return chunks
@@ -11,6 +11,7 @@ function buildContext(chunks) {
         `document_id: ${chunk.documentId}`,
         `document_version_id: ${chunk.documentVersionId}`,
         `document_title: ${chunk.documentTitle || 'Untitled document'}`,
+        `source_id: ${chunk.sourceId || ''}`,
         `chunk_index: ${chunk.chunkIndex}`,
         'content:',
         chunk.content
@@ -46,6 +47,7 @@ function fallbackNoAnswer(chunks) {
       documentId: chunk.documentId,
       documentVersionId: chunk.documentVersionId,
       documentTitle: chunk.documentTitle || 'Untitled document',
+      sourceId: chunk.sourceId || null,
       chunkIndex: chunk.chunkIndex,
       snippet: chunk.snippet || chunk.content.slice(0, 280),
       score: chunk.score
@@ -61,16 +63,28 @@ function parseUsedChunkIds(answerText, chunks) {
   return [...ids].filter((id) => validIds.has(id));
 }
 
-export async function answerQuestion({ organizationId, question }) {
-  const chunks = searchChunks({
+export async function answerQuestion({
+  organizationId,
+  question,
+  documentId = null,
+  sourceId = null
+}) {
+  const retrieval = await runRetrievalSearch({
     organizationId,
     query: question,
-    limit: env.ANSWER_TOP_K
+    limit: env.ANSWER_TOP_K,
+    documentId,
+    sourceId
   });
+
+  const chunks = retrieval.items;
 
   if (!chunks.length || chunks.length < env.ANSWER_MIN_CHUNKS) {
     return {
       retrievalCount: chunks.length,
+      query: retrieval.query,
+      rewrittenQuery: retrieval.rewrittenQuery,
+      usedRewrite: retrieval.usedRewrite,
       ...fallbackNoAnswer(chunks)
     };
   }
@@ -78,12 +92,16 @@ export async function answerQuestion({ organizationId, question }) {
   if (!openai) {
     return {
       retrievalCount: chunks.length,
+      query: retrieval.query,
+      rewrittenQuery: retrieval.rewrittenQuery,
+      usedRewrite: retrieval.usedRewrite,
       answer: 'La recuperación funciona, pero falta configurar OPENAI_API_KEY para generar respuestas fundamentadas.',
       citations: chunks.slice(0, 3).map((chunk) => ({
         chunkId: chunk.id,
         documentId: chunk.documentId,
         documentVersionId: chunk.documentVersionId,
         documentTitle: chunk.documentTitle || 'Untitled document',
+        sourceId: chunk.sourceId || null,
         chunkIndex: chunk.chunkIndex,
         snippet: chunk.snippet || chunk.content.slice(0, 280),
         score: chunk.score
@@ -92,27 +110,23 @@ export async function answerQuestion({ organizationId, question }) {
     };
   }
 
-  const hydratedChunks = chunks.map((chunk) => ({
-    ...chunk,
-    documentTitle: chunk.documentTitle || 'Untitled document'
-  }));
-
   const completion = await openai.responses.create({
     model: env.OPENAI_MODEL,
     temperature: env.ANSWER_TEMPERATURE,
-    input: buildPrompt(question, hydratedChunks)
+    input: buildPrompt(question, chunks)
   });
 
   const answerText = (completion.output_text || '').trim();
+  const usedChunkIds = parseUsedChunkIds(answerText, chunks);
 
-  const usedChunkIds = parseUsedChunkIds(answerText, hydratedChunks);
-  const citations = hydratedChunks
+  const citations = chunks
     .filter((chunk) => usedChunkIds.includes(chunk.id))
     .map((chunk) => ({
       chunkId: chunk.id,
       documentId: chunk.documentId,
       documentVersionId: chunk.documentVersionId,
       documentTitle: chunk.documentTitle,
+      sourceId: chunk.sourceId || null,
       chunkIndex: chunk.chunkIndex,
       snippet: chunk.snippet || chunk.content.slice(0, 280),
       score: chunk.score
@@ -120,13 +134,19 @@ export async function answerQuestion({ organizationId, question }) {
 
   if (!answerText || !citations.length) {
     return {
-      retrievalCount: hydratedChunks.length,
-      ...fallbackNoAnswer(hydratedChunks)
+      retrievalCount: chunks.length,
+      query: retrieval.query,
+      rewrittenQuery: retrieval.rewrittenQuery,
+      usedRewrite: retrieval.usedRewrite,
+      ...fallbackNoAnswer(chunks)
     };
   }
 
   return {
-    retrievalCount: hydratedChunks.length,
+    retrievalCount: chunks.length,
+    query: retrieval.query,
+    rewrittenQuery: retrieval.rewrittenQuery,
+    usedRewrite: retrieval.usedRewrite,
     answer: answerText,
     citations,
     grounded: true
