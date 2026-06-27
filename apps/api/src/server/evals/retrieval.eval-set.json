@@ -1,0 +1,20 @@
+[
+  {
+    "id": "q1",
+    "question": "¿Cómo funciona la autenticación organizacional?",
+    "relevantDocumentIds": ["DOC_ID_1"],
+    "relevantChunkIds": []
+  },
+  {
+    "id": "q2",
+    "question": "¿Cómo se suben archivos a documents?",
+    "relevantDocumentIds": ["DOC_ID_2"],
+    "relevantChunkIds": []
+  },
+  {
+    "id": "q3",
+    "question": "¿Cómo se indexan chunks para retrieval?",
+    "relevantDocumentIds": ["DOC_ID_3"],
+    "relevantChunkIds": []
+  }
+]
