@@ -24,5 +24,15 @@ export const env = {
   ),
   RETRIEVAL_ENABLE_DIVERSITY_RERANK:
     String(process.env.RETRIEVAL_ENABLE_DIVERSITY_RERANK || 'true') === 'true',
-  RETRIEVAL_DIVERSITY_LAMBDA: Number(process.env.RETRIEVAL_DIVERSITY_LAMBDA || 0.7)
+  RETRIEVAL_DIVERSITY_LAMBDA: Number(process.env.RETRIEVAL_DIVERSITY_LAMBDA || 0.7),
+  EMBEDDING_MODEL: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+  HYBRID_ENABLE_SEMANTIC:
+    String(process.env.HYBRID_ENABLE_SEMANTIC || 'true') === 'true',
+  HYBRID_RRF_K: Number(process.env.HYBRID_RRF_K || 60),
+  HYBRID_SEMANTIC_CANDIDATES: Number(process.env.HYBRID_SEMANTIC_CANDIDATES || 10),
+  ALERT_P95_LATENCY_MS: Number(process.env.ALERT_P95_LATENCY_MS || 4000),
+  ALERT_AVG_COST_USD: Number(process.env.ALERT_AVG_COST_USD || 0.01),
+  ALERT_ERROR_RATE: Number(process.env.ALERT_ERROR_RATE || 0.05),
+  ALERT_MIN_RUNS: Number(process.env.ALERT_MIN_RUNS || 20),
+  ALERT_REGRESSION_WINDOW_HOURS: Number(process.env.ALERT_REGRESSION_WINDOW_HOURS || 24)
 };
