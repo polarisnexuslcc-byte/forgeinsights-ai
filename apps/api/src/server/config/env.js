@@ -14,5 +14,9 @@ export const env = {
   OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
   ANSWER_TOP_K: Number(process.env.ANSWER_TOP_K || 5),
   ANSWER_MIN_CHUNKS: Number(process.env.ANSWER_MIN_CHUNKS || 2),
-  ANSWER_TEMPERATURE: Number(process.env.ANSWER_TEMPERATURE || 0)
+  ANSWER_TEMPERATURE: Number(process.env.ANSWER_TEMPERATURE || 0),
+  RETRIEVAL_ENABLE_QUERY_REWRITE:
+    String(process.env.RETRIEVAL_ENABLE_QUERY_REWRITE || 'true') === 'true',
+  RETRIEVAL_REWRITE_MODEL: process.env.RETRIEVAL_REWRITE_MODEL || 'gpt-4.1-mini',
+  RETRIEVAL_MAX_CANDIDATES: Number(process.env.RETRIEVAL_MAX_CANDIDATES || 10)
 };
