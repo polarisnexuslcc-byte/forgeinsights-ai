@@ -58,10 +58,20 @@ export async function askAnswerHandler(req, res, next) {
         grounded: result.grounded,
         retrievalCount: result.retrievalCount,
         citationCount: result.citations.length,
+        usedRewrite: result.usedRewrite,
+        filteredByDocument: Boolean(documentId),
+        filteredBySource: Boolean(sourceId),
         query: result.query,
         rewrittenQuery: result.rewrittenQuery || null,
-        filteredByDocument: !!documentId,
-        filteredBySource: !!sourceId
+        degradedToLexical: result.degradedToLexical || false,
+        degradationReason: result.degradationReason || null,
+        cacheHit: result.cache?.hit || false,
+        totalLatencyMs,
+        retrievalLatencyMs: result.metrics?.retrievalLatencyMs || 0,
+        semanticLatencyMs: result.metrics?.semanticLatencyMs || 0,
+        generationLatencyMs: result.metrics?.generationLatencyMs || 0,
+        totalTokens: result.usage?.totalTokens || 0,
+        estimatedCostUsd: result.usage?.estimatedCostUsd || 0
       }
     });
 
