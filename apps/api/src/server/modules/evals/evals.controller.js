@@ -19,3 +19,4 @@ export async function compareRetrievalHandler(req, res, next) {
     next(error);
   }
 }
+ 
