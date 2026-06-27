@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { withTimeout } from '../../utils/async.js';
 import { maybeRewriteQuery } from './retrieval.query-rewriter.js';
 import { searchChunks } from './retrieval.repository.js';
 import { applyPerDocumentCap, rerankWithDiversity } from './retrieval.rerank.js';
@@ -27,6 +28,8 @@ export async function runRetrievalSearch({
   useReranking = env.RETRIEVAL_ENABLE_DIVERSITY_RERANK,
   useHybrid = env.HYBRID_ENABLE_SEMANTIC
 }) {
+  const retrievalStartedAt = performance.now();
+
   const rewrite = await maybeRewriteQuery(query);
 
   const lexicalOriginal = searchChunks({
@@ -51,18 +54,40 @@ export async function runRetrievalSearch({
     [...lexicalOriginal, ...lexicalRewrite].sort((a, b) => a.score - b.score)
   );
 
-  const semanticResults = useHybrid
-    ? await searchSemanticChunks({
-        organizationId,
-        query: rewrite.rewrittenQuery || rewrite.originalQuery,
-        limit: env.HYBRID_SEMANTIC_CANDIDATES,
-        documentId,
-        sourceId
-      })
-    : [];
+  let semantic = {
+    items: [],
+    embeddingLatencyMs: 0,
+    rankingLatencyMs: 0
+  };
 
-  const hybrid = useHybrid
-    ? reciprocalRankFusion([lexicalMerged, semanticResults], env.RETRIEVAL_MAX_CANDIDATES)
+  let degradedToLexical = false;
+  let degradationReason = null;
+
+  if (useHybrid) {
+    try {
+      semantic = await withTimeout(
+        searchSemanticChunks({
+          organizationId,
+          query: rewrite.rewrittenQuery || rewrite.originalQuery,
+          limit: env.HYBRID_SEMANTIC_CANDIDATES,
+          documentId,
+          sourceId
+        }),
+        env.RETRIEVAL_SEMANTIC_TIMEOUT_MS,
+        'Semantic retrieval timed out'
+      );
+    } catch (error) {
+      if (env.RETRIEVAL_FORCE_LEXICAL_ON_TIMEOUT) {
+        degradedToLexical = true;
+        degradationReason = error.message || 'Semantic retrieval failed';
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const hybrid = useHybrid && !degradedToLexical
+    ? reciprocalRankFusion([lexicalMerged, semantic.items], env.RETRIEVAL_MAX_CANDIDATES)
     : lexicalMerged.slice(0, env.RETRIEVAL_MAX_CANDIDATES);
 
   const capped = applyPerDocumentCap(
@@ -74,14 +99,24 @@ export async function runRetrievalSearch({
     enabled: useReranking
   });
 
+  const retrievalLatencyMs = Math.round(performance.now() - retrievalStartedAt);
+
   return {
     query: rewrite.originalQuery,
     rewrittenQuery: rewrite.rewrittenQuery,
     usedRewrite: rewrite.usedRewrite,
     lexicalCount: lexicalMerged.length,
-    semanticCount: semanticResults.length,
+    semanticCount: semantic.items.length,
     useHybrid,
     useReranking,
+    degradedToLexical,
+    degradationReason,
+    metrics: {
+      retrievalLatencyMs,
+      semanticEmbeddingLatencyMs: semantic.embeddingLatencyMs,
+      semanticRankingLatencyMs: semantic.rankingLatencyMs,
+      semanticLatencyMs: semantic.embeddingLatencyMs + semantic.rankingLatencyMs
+    },
     items: reranked
   };
 }
