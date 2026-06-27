@@ -82,11 +82,14 @@ export function searchChunks({ organizationId, query, limit = 5 }) {
       document_chunks.content,
       document_chunks.token_count as tokenCount,
       document_chunks.char_count as charCount,
+      documents.title as documentTitle,
       bm25(document_chunks_fts) as score,
       snippet(document_chunks_fts, 4, '<mark>', '</mark>', ' … ', 24) as snippet
     FROM document_chunks_fts
     INNER JOIN document_chunks
       ON document_chunks.id = document_chunks_fts.chunk_id
+    INNER JOIN documents
+      ON documents.id = document_chunks.document_id
     WHERE document_chunks_fts.organization_id = ?
       AND document_chunks_fts MATCH ?
     ORDER BY bm25(document_chunks_fts)
