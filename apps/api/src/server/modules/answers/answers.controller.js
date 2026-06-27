@@ -32,7 +32,9 @@ export async function askAnswerHandler(req, res, next) {
         citationCount: result.citations.length,
         usedRewrite: result.usedRewrite,
         filteredByDocument: Boolean(documentId),
-        filteredBySource: Boolean(sourceId)
+        filteredBySource: Boolean(sourceId),
+        query: result.query,
+        rewrittenQuery: result.rewrittenQuery || null
       },
       req
     });
