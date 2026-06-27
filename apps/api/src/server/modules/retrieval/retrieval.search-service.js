@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { maybeRewriteQuery } from './retrieval.query-rewriter.js';
 import { searchChunks } from './retrieval.repository.js';
+import { applyPerDocumentCap, rerankWithDiversity } from './retrieval.rerank.js';
 
 function dedupeChunks(items) {
   const seen = new Set();
@@ -44,12 +45,19 @@ export async function runRetrievalSearch({
 
   const merged = dedupeChunks(
     [...originalResults, ...rewrittenResults].sort((a, b) => a.score - b.score)
-  ).slice(0, limit);
+  );
+
+  const capped = applyPerDocumentCap(
+    merged,
+    env.RETRIEVAL_MAX_CHUNKS_PER_DOCUMENT
+  );
+
+  const reranked = rerankWithDiversity(capped, limit);
 
   return {
     query: rewrite.originalQuery,
     rewrittenQuery: rewrite.rewrittenQuery,
     usedRewrite: rewrite.usedRewrite,
-    items: merged
+    items: reranked
   };
 }
