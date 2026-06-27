@@ -21,6 +21,27 @@ export function listDocuments() {
   `).all();
 }
 
+export function listDocumentsByOrganization(organizationId) {
+  return db.prepare(`
+    SELECT
+      id,
+      organization_id as organizationId,
+      source_id as sourceId,
+      title,
+      document_type as documentType,
+      status,
+      visibility,
+      checksum,
+      metadata_json as metadataJson,
+      created_by_user_id as createdByUserId,
+      created_at as createdAt,
+      updated_at as updatedAt
+    FROM documents
+    WHERE organization_id = ?
+    ORDER BY created_at DESC
+  `).all(organizationId);
+}
+
 export function getDocumentById(id) {
   return db.prepare(`
     SELECT
@@ -41,6 +62,26 @@ export function getDocumentById(id) {
   `).get(id);
 }
 
+export function getDocumentByIdForOrganization(id, organizationId) {
+  return db.prepare(`
+    SELECT
+      id,
+      organization_id as organizationId,
+      source_id as sourceId,
+      title,
+      document_type as documentType,
+      status,
+      visibility,
+      checksum,
+      metadata_json as metadataJson,
+      created_by_user_id as createdByUserId,
+      created_at as createdAt,
+      updated_at as updatedAt
+    FROM documents
+    WHERE id = ? AND organization_id = ?
+  `).get(id, organizationId);
+}
+
 export function organizationExists(organizationId) {
   const row = db.prepare(`
     SELECT id
@@ -59,6 +100,18 @@ export function sourceExists(sourceId) {
     FROM sources
     WHERE id = ?
   `).get(sourceId);
+
+  return Boolean(row);
+}
+
+export function sourceExistsInOrganization(sourceId, organizationId) {
+  if (!sourceId) return true;
+
+  const row = db.prepare(`
+    SELECT id
+    FROM sources
+    WHERE id = ? AND organization_id = ?
+  `).get(sourceId, organizationId);
 
   return Boolean(row);
 }
@@ -109,7 +162,7 @@ export function getLatestDocumentVersionNumber(documentId) {
   return row?.maxVersion || 0;
 }
 
-export function createDocumentVersion(documentId, data) {
+export function createDocumentVersion(documentId, _organizationId, data) {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const nextVersion = getLatestDocumentVersionNumber(documentId) + 1;
@@ -176,4 +229,49 @@ export function markDocumentForReindex(documentId) {
   `).run('uploaded', now, documentId);
 
   return getDocumentById(documentId);
+}
+
+export function createUploadedFile(data) {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO uploaded_files (
+      id,
+      organization_id,
+      document_id,
+      original_name,
+      storage_path,
+      mime_type,
+      size_bytes,
+      uploaded_by_user_id,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    data.organizationId,
+    data.documentId,
+    data.originalName,
+    data.storagePath,
+    data.mimeType,
+    data.sizeBytes,
+    data.uploadedByUserId,
+    now
+  );
+
+  return db.prepare(`
+    SELECT
+      id,
+      organization_id as organizationId,
+      document_id as documentId,
+      original_name as originalName,
+      storage_path as storagePath,
+      mime_type as mimeType,
+      size_bytes as sizeBytes,
+      uploaded_by_user_id as uploadedByUserId,
+      created_at as createdAt
+    FROM uploaded_files
+    WHERE id = ?
+  `).get(id);
 }
