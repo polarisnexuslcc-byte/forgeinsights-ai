@@ -21,7 +21,8 @@ export async function runRetrievalSearch({
   query,
   limit = 5,
   documentId = null,
-  sourceId = null
+  sourceId = null,
+  useReranking = env.RETRIEVAL_ENABLE_DIVERSITY_RERANK
 }) {
   const rewrite = await maybeRewriteQuery(query);
 
@@ -52,7 +53,9 @@ export async function runRetrievalSearch({
     env.RETRIEVAL_MAX_CHUNKS_PER_DOCUMENT
   );
 
-  const reranked = rerankWithDiversity(capped, limit);
+  const reranked = rerankWithDiversity(capped, limit, {
+    enabled: useReranking
+  });
 
   return {
     query: rewrite.originalQuery,
