@@ -9,5 +9,10 @@ export const env = {
   APP_URL: process.env.APP_URL || 'http://localhost:3001',
   DATABASE_URL: process.env.DATABASE_URL || '../../storage/dev.sqlite',
   SESSION_TTL_DAYS: Number(process.env.SESSION_TTL_DAYS || 7),
-  UPLOAD_DIR: process.env.UPLOAD_DIR || '../../storage/uploads'
+  UPLOAD_DIR: process.env.UPLOAD_DIR || '../../storage/uploads',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+  ANSWER_TOP_K: Number(process.env.ANSWER_TOP_K || 5),
+  ANSWER_MIN_CHUNKS: Number(process.env.ANSWER_MIN_CHUNKS || 2),
+  ANSWER_TEMPERATURE: Number(process.env.ANSWER_TEMPERATURE || 0)
 };
