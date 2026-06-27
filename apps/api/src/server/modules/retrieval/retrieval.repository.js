@@ -71,8 +71,32 @@ export function insertChunks({ organizationId, documentId, documentVersionId, ch
   transaction();
 }
 
-export function searchChunks({ organizationId, query, limit = 5 }) {
-  return db.prepare(`
+export function searchChunks({
+  organizationId,
+  query,
+  limit = 5,
+  documentId = null,
+  sourceId = null
+}) {
+  const where = [
+    'document_chunks_fts.organization_id = ?',
+    'document_chunks_fts MATCH ?'
+  ];
+  const params = [organizationId, query];
+
+  if (documentId) {
+    where.push('document_chunks.document_id = ?');
+    params.push(documentId);
+  }
+
+  if (sourceId) {
+    where.push('documents.source_id = ?');
+    params.push(sourceId);
+  }
+
+  params.push(limit);
+
+  const sql = `
     SELECT
       document_chunks.id,
       document_chunks.organization_id as organizationId,
@@ -83,6 +107,7 @@ export function searchChunks({ organizationId, query, limit = 5 }) {
       document_chunks.token_count as tokenCount,
       document_chunks.char_count as charCount,
       documents.title as documentTitle,
+      documents.source_id as sourceId,
       bm25(document_chunks_fts) as score,
       snippet(document_chunks_fts, 4, '<mark>', '</mark>', ' … ', 24) as snippet
     FROM document_chunks_fts
@@ -90,9 +115,10 @@ export function searchChunks({ organizationId, query, limit = 5 }) {
       ON document_chunks.id = document_chunks_fts.chunk_id
     INNER JOIN documents
       ON documents.id = document_chunks.document_id
-    WHERE document_chunks_fts.organization_id = ?
-      AND document_chunks_fts MATCH ?
+    WHERE ${where.join(' AND ')}
     ORDER BY bm25(document_chunks_fts)
     LIMIT ?
-  `).all(organizationId, query, limit);
+  `;
+
+  return db.prepare(sql).all(...params);
 }
