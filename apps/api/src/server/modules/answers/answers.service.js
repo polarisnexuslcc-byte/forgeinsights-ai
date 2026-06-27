@@ -1,66 +1,60 @@
 import { env } from '../../config/env.js';
 import { openai } from '../../lib/openai.js';
+import { getCachedAnswer, setCachedAnswer } from '../cache/query-cache.js';
 import { runRetrievalSearch } from '../retrieval/retrieval.search-service.js';
 
-function buildContext(chunks) {
-  return chunks
-    .map((chunk, index) => {
-      return [
-        `SOURCE ${index + 1}`,
-        `chunk_id: ${chunk.id}`,
-        `document_id: ${chunk.documentId}`,
-        `document_version_id: ${chunk.documentVersionId}`,
-        `document_title: ${chunk.documentTitle || 'Untitled document'}`,
-        `source_id: ${chunk.sourceId || ''}`,
-        `chunk_index: ${chunk.chunkIndex}`,
-        'content:',
-        chunk.content
-      ].join('\n');
-    })
-    .join('\n\n---\n\n');
+const INPUT_COST_PER_TOKEN = 0.0000004;
+const OUTPUT_COST_PER_TOKEN = 0.0000016;
+
+function buildCacheInput({ organizationId, question, documentId, sourceId }) {
+  return {
+    organizationId,
+    question,
+    documentId,
+    sourceId,
+    model: env.OPENAI_MODEL,
+    retrievalConfig: {
+      topK: env.ANSWER_TOP_K,
+      minChunks: env.ANSWER_MIN_CHUNKS,
+      hybrid: env.HYBRID_ENABLE_SEMANTIC,
+      reranking: env.RETRIEVAL_ENABLE_DIVERSITY_RERANK
+    }
+  };
 }
 
 function buildPrompt(question, chunks) {
-  const context = buildContext(chunks);
+  const context = chunks
+    .map((chunk) => `[chunk:${chunk.id}] (from: ${chunk.documentTitle || 'unknown'})\n${chunk.content}`)
+    .join('\n\n---\n\n');
 
-  return [
-    'You are a grounded enterprise retrieval assistant.',
-    'Answer only from the provided sources.',
-    'Do not use outside knowledge.',
-    'If the sources are insufficient, say so clearly.',
-    'Every factual claim must be supported by one or more chunk citations.',
-    'Use inline citations in this exact format: [chunk:<chunk_id>].',
-    'Do not cite any chunk that is not in the provided context.',
-    '',
-    'CONTEXT',
-    context,
-    '',
-    `QUESTION: ${question}`
-  ].join('\n');
+  return {
+    system:
+      'You are a precise document assistant. Answer questions using ONLY the provided sources. ' +
+      'Cite every claim with [chunk:<chunk_id>] inline. If the sources do not contain the answer, ' +
+      'respond with exactly: "No encontré información suficiente en los documentos para responder esta pregunta."',
+    user: `Sources:\n\n${context}\n\nQuestion: ${question}`
+  };
 }
 
 function fallbackNoAnswer(chunks) {
   return {
-    answer: 'No he encontrado evidencia suficiente en los documentos recuperados para responder con confianza.',
-    citations: chunks.slice(0, 3).map((chunk) => ({
-      chunkId: chunk.id,
-      documentId: chunk.documentId,
-      documentVersionId: chunk.documentVersionId,
-      documentTitle: chunk.documentTitle || 'Untitled document',
-      sourceId: chunk.sourceId || null,
-      chunkIndex: chunk.chunkIndex,
-      snippet: chunk.snippet || chunk.content.slice(0, 280),
-      score: chunk.score
-    })),
-    grounded: false
+    query: null,
+    rewrittenQuery: null,
+    usedRewrite: false,
+    grounded: false,
+    answer: 'No encontré información suficiente en los documentos para responder esta pregunta.',
+    retrievalCount: chunks.length,
+    degradedToLexical: false,
+    degradationReason: null,
+    citations: [],
+    usage: null,
+    metrics: {
+      retrievalLatencyMs: 0,
+      semanticLatencyMs: 0,
+      generationLatencyMs: 0
+    },
+    cache: { hit: false }
   };
-}
-
-function parseUsedChunkIds(answerText, chunks) {
-  const matches = [...answerText.matchAll(/\[chunk:([a-zA-Z0-9-]+)\]/g)];
-  const ids = new Set(matches.map((match) => match[1]));
-  const validIds = new Set(chunks.map((chunk) => chunk.id));
-  return [...ids].filter((id) => validIds.has(id));
 }
 
 export async function answerQuestion({
@@ -69,6 +63,17 @@ export async function answerQuestion({
   documentId = null,
   sourceId = null
 }) {
+  const cacheInput = buildCacheInput({ organizationId, question, documentId, sourceId });
+
+  const cached = getCachedAnswer(cacheInput);
+
+  if (cached) {
+    return {
+      ...cached,
+      cache: { hit: true }
+    };
+  }
+
   const retrieval = await runRetrievalSearch({
     organizationId,
     query: question,
@@ -79,76 +84,96 @@ export async function answerQuestion({
 
   const chunks = retrieval.items;
 
-  if (!chunks.length || chunks.length < env.ANSWER_MIN_CHUNKS) {
-    return {
-      retrievalCount: chunks.length,
-      query: retrieval.query,
-      rewrittenQuery: retrieval.rewrittenQuery,
-      usedRewrite: retrieval.usedRewrite,
-      ...fallbackNoAnswer(chunks)
-    };
+  if (chunks.length < env.ANSWER_MIN_CHUNKS) {
+    return fallbackNoAnswer(chunks);
   }
 
   if (!openai) {
     return {
-      retrievalCount: chunks.length,
       query: retrieval.query,
       rewrittenQuery: retrieval.rewrittenQuery,
       usedRewrite: retrieval.usedRewrite,
-      answer: 'La recuperación funciona, pero falta configurar OPENAI_API_KEY para generar respuestas fundamentadas.',
-      citations: chunks.slice(0, 3).map((chunk) => ({
-        chunkId: chunk.id,
-        documentId: chunk.documentId,
-        documentVersionId: chunk.documentVersionId,
-        documentTitle: chunk.documentTitle || 'Untitled document',
-        sourceId: chunk.sourceId || null,
-        chunkIndex: chunk.chunkIndex,
-        snippet: chunk.snippet || chunk.content.slice(0, 280),
-        score: chunk.score
-      })),
-      grounded: false
+      grounded: false,
+      answer: 'OpenAI API key not configured.',
+      retrievalCount: chunks.length,
+      degradedToLexical: retrieval.degradedToLexical,
+      degradationReason: retrieval.degradationReason,
+      citations: [],
+      usage: null,
+      metrics: retrieval.metrics,
+      cache: { hit: false }
     };
   }
 
-  const completion = await openai.responses.create({
+  const generationStartedAt = performance.now();
+  const prompt = buildPrompt(question, chunks);
+
+  const response = await openai.responses.create({
     model: env.OPENAI_MODEL,
     temperature: env.ANSWER_TEMPERATURE,
-    input: buildPrompt(question, chunks)
+    input: [
+      { role: 'system', content: prompt.system },
+      { role: 'user', content: prompt.user }
+    ]
   });
 
-  const answerText = (completion.output_text || '').trim();
-  const usedChunkIds = parseUsedChunkIds(answerText, chunks);
+  const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
 
-  const citations = chunks
-    .filter((chunk) => usedChunkIds.includes(chunk.id))
-    .map((chunk) => ({
-      chunkId: chunk.id,
-      documentId: chunk.documentId,
-      documentVersionId: chunk.documentVersionId,
-      documentTitle: chunk.documentTitle,
-      sourceId: chunk.sourceId || null,
-      chunkIndex: chunk.chunkIndex,
-      snippet: chunk.snippet || chunk.content.slice(0, 280),
-      score: chunk.score
-    }));
+  const answerText = response.output_text || '';
+  const promptTokens = response.usage?.input_tokens || 0;
+  const completionTokens = response.usage?.output_tokens || 0;
+  const totalTokens = promptTokens + completionTokens;
+  const estimatedCostUsd = Number(
+    (promptTokens * INPUT_COST_PER_TOKEN + completionTokens * OUTPUT_COST_PER_TOKEN).toFixed(8)
+  );
 
-  if (!answerText || !citations.length) {
-    return {
-      retrievalCount: chunks.length,
-      query: retrieval.query,
-      rewrittenQuery: retrieval.rewrittenQuery,
-      usedRewrite: retrieval.usedRewrite,
-      ...fallbackNoAnswer(chunks)
-    };
+  const citationPattern = /\[chunk:([a-zA-Z0-9_-]+)\]/g;
+  const chunkIdSet = new Set(chunks.map((c) => c.id));
+  const citedIds = new Set();
+  let match;
+
+  while ((match = citationPattern.exec(answerText)) !== null) {
+    if (chunkIdSet.has(match[1])) {
+      citedIds.add(match[1]);
+    }
   }
 
-  return {
-    retrievalCount: chunks.length,
+  const citations = chunks
+    .filter((c) => citedIds.has(c.id))
+    .map((c) => ({
+      chunkId: c.id,
+      documentId: c.documentId,
+      documentTitle: c.documentTitle || null,
+      sourceId: c.sourceId || null,
+      snippet: c.content.slice(0, 200)
+    }));
+
+  const finalResult = {
     query: retrieval.query,
     rewrittenQuery: retrieval.rewrittenQuery,
     usedRewrite: retrieval.usedRewrite,
+    grounded: true,
     answer: answerText,
+    retrievalCount: chunks.length,
+    degradedToLexical: retrieval.degradedToLexical,
+    degradationReason: retrieval.degradationReason,
     citations,
-    grounded: true
+    usage: {
+      model: env.OPENAI_MODEL,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      estimatedCostUsd
+    },
+    metrics: {
+      retrievalLatencyMs: retrieval.metrics.retrievalLatencyMs,
+      semanticLatencyMs: retrieval.metrics.semanticLatencyMs,
+      generationLatencyMs
+    },
+    cache: { hit: false }
   };
+
+  setCachedAnswer(cacheInput, finalResult);
+
+  return finalResult;
 }
