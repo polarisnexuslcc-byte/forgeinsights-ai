@@ -4,8 +4,8 @@ import {
   getDocumentByIdForOrganization,
   getLatestDocumentVersion
 } from '../documents/documents.repository.js';
-import { searchChunks } from './retrieval.repository.js';
 import { indexDocumentText } from './retrieval.service.js';
+import { runRetrievalSearch } from './retrieval.search-service.js';
 
 export function indexDocumentChunksHandler(req, res) {
   const document = getDocumentByIdForOrganization(req.params.id, req.auth.organizationId);
@@ -59,19 +59,27 @@ export function indexDocumentChunksHandler(req, res) {
   });
 }
 
-export function searchRetrievalHandler(req, res) {
-  const query = String(req.query.q || '').trim();
-  const limit = Math.min(Number(req.query.limit || 5), 20);
+export async function searchRetrievalHandler(req, res, next) {
+  try {
+    const query = String(req.query.q || '').trim();
+    const limit = Math.min(Number(req.query.limit || 5), 20);
+    const documentId = req.query.documentId ? String(req.query.documentId) : null;
+    const sourceId = req.query.sourceId ? String(req.query.sourceId) : null;
 
-  if (!query) {
-    return fail(res, 400, 'q is required');
+    if (!query) {
+      return fail(res, 400, 'q is required');
+    }
+
+    const result = await runRetrievalSearch({
+      organizationId: req.auth.organizationId,
+      query,
+      limit,
+      documentId,
+      sourceId
+    });
+
+    return ok(res, result);
+  } catch (error) {
+    next(error);
   }
-
-  const items = searchChunks({
-    organizationId: req.auth.organizationId,
-    query,
-    limit
-  });
-
-  return ok(res, { items });
 }
