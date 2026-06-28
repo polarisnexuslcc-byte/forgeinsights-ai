@@ -665,3 +665,187 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ============================================================
+   PHASE 8 — Streaming Query UI + Internal RAG Panel
+   ============================================================ */
+
+/* Streaming cursor */
+.stream-cursor {
+  display: inline-block;
+  animation: blink 0.7s step-start infinite;
+  color: var(--color-accent, #6c63ff);
+  margin-left: 2px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Status bar during streaming */
+.chat-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin: 4px 0;
+}
+.chat-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #d1d5db;
+  border-top-color: #6c63ff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error bar */
+.chat-error-bar {
+  padding: 8px 14px;
+  background: #fef2f2;
+  color: #dc2626;
+  border-left: 3px solid #dc2626;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+/* Stop button */
+.btn-stop {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.btn-stop:hover { background: #dc2626; }
+
+/* Empty states for chat / citations */
+.chat-empty,
+.citations-empty {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 40px 16px;
+}
+
+/* ---- Internal RAG Panel ---- */
+.internal-layout {
+  padding: 24px;
+  max-width: 1100px;
+}
+.internal-section {
+  margin-bottom: 32px;
+}
+.internal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.internal-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+.internal-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.internal-metric-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px 20px;
+  text-align: center;
+}
+.internal-metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+}
+.internal-metric-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.internal-metric-sub {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* Eval run button */
+.btn-run-evals {
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.btn-run-evals:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-run-evals:hover:not(:disabled) { background: #5a52d5; }
+
+/* Last run summary */
+.internal-last-run {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #374151;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.internal-run-error {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.internal-empty {
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+/* Evals table */
+.internal-table-wrap {
+  overflow-x: auto;
+}
+.internal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.internal-table th,
+.internal-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.internal-table th {
+  color: #6b7280;
+  font-weight: 600;
+  background: #f9fafb;
+}
+.internal-table tr:hover td { background: #f9fafb; }
+
+@media (max-width: 640px) {
+  .internal-metrics-grid { grid-template-columns: 1fr 1fr; }
+  .internal-table { font-size: 0.78rem; }
+}
