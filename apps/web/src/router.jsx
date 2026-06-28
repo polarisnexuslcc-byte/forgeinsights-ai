@@ -1,25 +1,21 @@
-import React from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { RequireAuth } from './auth/RequireAuth';
-import { RequireGuest } from './auth/RequireGuest';
-
-import { LandingPage } from './pages/LandingPage';
-import { LoginPage } from './pages/LoginPage';
-import { SignupPage } from './pages/SignupPage';
-import { AppShell } from './pages/AppShell';
-import { OverviewPage } from './pages/OverviewPage';
-import { DashboardsPage } from './pages/DashboardsPage';
-import { AlertsPage } from './pages/AlertsPage';
-import { SourcesPage } from './pages/SourcesPage';
-import { IntegrationsPage } from './pages/IntegrationsPage';
-import { QueryPage } from './pages/QueryPage';
-import { NotFoundPage } from './pages/NotFoundPage';
+import { createBrowserRouter } from 'react-router-dom';
+import { RequireAuth } from './auth/RequireAuth.jsx';
+import { RequireGuest } from './auth/RequireGuest.jsx';
+import LandingPage from './pages/LandingPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import SignupPage from './pages/SignupPage.jsx';
+import AppShell from './pages/AppShell.jsx';
+import OverviewPage from './pages/OverviewPage.jsx';
+import SourcesPage from './pages/SourcesPage.jsx';
+import AlertsPage from './pages/AlertsPage.jsx';
+import IntegrationsPage from './pages/IntegrationsPage.jsx';
+import DashboardsPage from './pages/DashboardsPage.jsx';
+import QueryPage from './pages/QueryPage.jsx';
+import InternalPage from './pages/InternalPage.jsx';
+import NotFoundPage from './pages/NotFoundPage.jsx';
 
 export const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <LandingPage />
-  },
+  { path: '/', element: <LandingPage /> },
   {
     path: '/login',
     element: (
@@ -44,17 +40,15 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/app/overview" replace /> },
+      { index: true, element: <OverviewPage /> },
       { path: 'overview', element: <OverviewPage /> },
-      { path: 'dashboards', element: <DashboardsPage /> },
-      { path: 'alerts', element: <AlertsPage /> },
       { path: 'sources', element: <SourcesPage /> },
+      { path: 'alerts', element: <AlertsPage /> },
       { path: 'integrations', element: <IntegrationsPage /> },
-      { path: 'query', element: <QueryPage /> }
+      { path: 'dashboards', element: <DashboardsPage /> },
+      { path: 'query', element: <QueryPage /> },
+      { path: 'internal', element: <InternalPage /> }
     ]
   },
-  {
-    path: '*',
-    element: <NotFoundPage />
-  }
+  { path: '*', element: <NotFoundPage /> }
 ]);
