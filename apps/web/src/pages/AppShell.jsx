@@ -7,7 +7,8 @@ const navItems = [
   { to: '/app/dashboards', label: 'Dashboards' },
   { to: '/app/alerts', label: 'Alerts' },
   { to: '/app/sources', label: 'Sources' },
-  { to: '/app/integrations', label: 'Integrations' }
+  { to: '/app/integrations', label: 'Integrations' },
+  { to: '/app/query', label: 'Query' }
 ];
 
 export function AppShell() {
