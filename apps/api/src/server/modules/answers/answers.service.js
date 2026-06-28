@@ -1,5 +1,6 @@
 import { env } from '../../config/env.js';
 import { generateChatCompletion } from '../ai/chat.service.js';
+import { getOrganizationBudgetStatus } from '../ai/ai-budgets.service.js';
 import { getCachedAnswer, setCachedAnswer } from '../cache/query-cache.js';
 import { runRetrievalSearch } from '../retrieval/retrieval.search-service.js';
 
@@ -36,20 +37,20 @@ function buildPrompt(question, chunks) {
   };
 }
 
-function fallbackNoAnswer(chunks) {
+function fallbackNoAnswer(chunks, retrieval) {
   return {
-    query: null,
-    rewrittenQuery: null,
-    usedRewrite: false,
+    query: retrieval?.query || null,
+    rewrittenQuery: retrieval?.rewrittenQuery || null,
+    usedRewrite: retrieval?.usedRewrite || false,
     grounded: false,
     answer: 'No encontré información suficiente en los documentos para responder esta pregunta.',
     retrievalCount: chunks.length,
     degradedToLexical: false,
     degradationReason: null,
     citations: [],
-    usage: null,
     provider: null,
     model: null,
+    usage: null,
     metrics: {
       retrievalLatencyMs: 0,
       semanticLatencyMs: 0,
@@ -76,6 +77,37 @@ export async function answerQuestion({
     };
   }
 
+  const budgetStatus = getOrganizationBudgetStatus(organizationId);
+
+  if (budgetStatus.state === 'hard-limit') {
+    return {
+      query: question,
+      rewrittenQuery: null,
+      usedRewrite: false,
+      grounded: false,
+      answer: 'AI budget limit reached for this organization.',
+      retrievalCount: 0,
+      degradedToLexical: false,
+      degradationReason: null,
+      citations: [],
+      provider: null,
+      model: null,
+      usage: {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0
+      },
+      metrics: {
+        retrievalLatencyMs: 0,
+        semanticLatencyMs: 0,
+        generationLatencyMs: 0
+      },
+      cache: { hit: false },
+      budget: budgetStatus
+    };
+  }
+
   const retrieval = await runRetrievalSearch({
     organizationId,
     query: question,
@@ -87,7 +119,7 @@ export async function answerQuestion({
   const chunks = retrieval.items;
 
   if (chunks.length < env.ANSWER_MIN_CHUNKS) {
-    return fallbackNoAnswer(chunks);
+    return fallbackNoAnswer(chunks, retrieval);
   }
 
   const generationStartedAt = performance.now();
@@ -155,7 +187,15 @@ export async function answerQuestion({
       semanticLatencyMs: retrieval.metrics?.semanticLatencyMs || 0,
       generationLatencyMs
     },
-    cache: { hit: false }
+    cache: { hit: false },
+    budget: budgetStatus,
+    gateway: {
+      mode: env.AI_GATEWAY_MODE,
+      requestedModel: env.AI_PROVIDER === 'litellm' ? env.LITELLM_CHAT_MODEL : env.AI_CHAT_MODEL,
+      provider: completion.provider,
+      actualModel: completion.model,
+      budgetState: budgetStatus.state
+    }
   };
 
   setCachedAnswer(cacheInput, result);
