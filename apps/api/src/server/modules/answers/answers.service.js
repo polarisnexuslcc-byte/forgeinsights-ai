@@ -1,5 +1,5 @@
 import { env } from '../../config/env.js';
-import { openai } from '../../lib/openai.js';
+import { generateChatCompletion } from '../ai/chat.service.js';
 import { getCachedAnswer, setCachedAnswer } from '../cache/query-cache.js';
 import { runRetrievalSearch } from '../retrieval/retrieval.search-service.js';
 
@@ -12,7 +12,7 @@ function buildCacheInput({ organizationId, question, documentId, sourceId }) {
     question,
     documentId,
     sourceId,
-    model: env.OPENAI_MODEL,
+    model: env.AI_CHAT_MODEL,
     retrievalConfig: {
       topK: env.ANSWER_TOP_K,
       minChunks: env.ANSWER_MIN_CHUNKS,
@@ -48,6 +48,8 @@ function fallbackNoAnswer(chunks) {
     degradationReason: null,
     citations: [],
     usage: null,
+    provider: null,
+    model: null,
     metrics: {
       retrievalLatencyMs: 0,
       semanticLatencyMs: 0,
@@ -88,92 +90,75 @@ export async function answerQuestion({
     return fallbackNoAnswer(chunks);
   }
 
-  if (!openai) {
-    return {
-      query: retrieval.query,
-      rewrittenQuery: retrieval.rewrittenQuery,
-      usedRewrite: retrieval.usedRewrite,
-      grounded: false,
-      answer: 'OpenAI API key not configured.',
-      retrievalCount: chunks.length,
-      degradedToLexical: retrieval.degradedToLexical,
-      degradationReason: retrieval.degradationReason,
-      citations: [],
-      usage: null,
-      metrics: retrieval.metrics,
-      cache: { hit: false }
-    };
-  }
-
   const generationStartedAt = performance.now();
   const prompt = buildPrompt(question, chunks);
 
-  const response = await openai.responses.create({
-    model: env.OPENAI_MODEL,
-    temperature: env.ANSWER_TEMPERATURE,
-    input: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user }
-    ]
+  const messages = [
+    { role: 'system', content: prompt.system },
+    { role: 'user', content: prompt.user }
+  ];
+
+  const completion = await generateChatCompletion({
+    messages,
+    temperature: env.ANSWER_TEMPERATURE
   });
 
   const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
 
-  const answerText = response.output_text || '';
-  const promptTokens = response.usage?.input_tokens || 0;
-  const completionTokens = response.usage?.output_tokens || 0;
-  const totalTokens = promptTokens + completionTokens;
-  const estimatedCostUsd = Number(
-    (promptTokens * INPUT_COST_PER_TOKEN + completionTokens * OUTPUT_COST_PER_TOKEN).toFixed(8)
-  );
+  const answerText = completion.text || '';
+  const promptTokens = completion.usage.promptTokens || 0;
+  const completionTokens = completion.usage.completionTokens || 0;
+  const totalTokens = completion.usage.totalTokens || 0;
+
+  const estimatedCostUsd =
+    promptTokens * INPUT_COST_PER_TOKEN + completionTokens * OUTPUT_COST_PER_TOKEN;
 
   const citationPattern = /\[chunk:([a-zA-Z0-9_-]+)\]/g;
-  const chunkIdSet = new Set(chunks.map((c) => c.id));
   const citedIds = new Set();
   let match;
 
   while ((match = citationPattern.exec(answerText)) !== null) {
-    if (chunkIdSet.has(match[1])) {
-      citedIds.add(match[1]);
-    }
+    citedIds.add(match[1]);
   }
 
   const citations = chunks
-    .filter((c) => citedIds.has(c.id))
-    .map((c) => ({
-      chunkId: c.id,
-      documentId: c.documentId,
-      documentTitle: c.documentTitle || null,
-      sourceId: c.sourceId || null,
-      snippet: c.content.slice(0, 200)
+    .filter((chunk) => citedIds.has(chunk.id))
+    .map((chunk) => ({
+      chunkId: chunk.id,
+      documentId: chunk.documentId,
+      documentTitle: chunk.documentTitle,
+      content: chunk.content
     }));
 
-  const finalResult = {
+  const grounded = citations.length > 0;
+
+  const result = {
     query: retrieval.query,
     rewrittenQuery: retrieval.rewrittenQuery,
     usedRewrite: retrieval.usedRewrite,
-    grounded: true,
+    grounded,
     answer: answerText,
     retrievalCount: chunks.length,
-    degradedToLexical: retrieval.degradedToLexical,
-    degradationReason: retrieval.degradationReason,
+    degradedToLexical: retrieval.degradedToLexical || false,
+    degradationReason: retrieval.degradationReason || null,
     citations,
+    provider: completion.provider,
+    model: completion.model,
     usage: {
-      model: env.OPENAI_MODEL,
       promptTokens,
       completionTokens,
       totalTokens,
       estimatedCostUsd
     },
     metrics: {
-      retrievalLatencyMs: retrieval.metrics.retrievalLatencyMs,
-      semanticLatencyMs: retrieval.metrics.semanticLatencyMs,
+      retrievalLatencyMs: retrieval.metrics?.retrievalLatencyMs || 0,
+      semanticLatencyMs: retrieval.metrics?.semanticLatencyMs || 0,
       generationLatencyMs
     },
     cache: { hit: false }
   };
 
-  setCachedAnswer(cacheInput, finalResult);
+  setCachedAnswer(cacheInput, result);
 
-  return finalResult;
+  return result;
 }
