@@ -849,3 +849,118 @@ button {
   .internal-metrics-grid { grid-template-columns: 1fr 1fr; }
   .internal-table { font-size: 0.78rem; }
 }
+
+
+/* ============================================================
+   PHASE 9 — Feedback loop + Product Analytics
+   ============================================================ */
+
+/* Feedback widget container */
+.feedback-widget {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.feedback-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.feedback-btn {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.15s;
+}
+.feedback-btn:hover { background: #e5e7eb; }
+.feedback-btn-active { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+
+.feedback-btn-down.feedback-btn-active {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.feedback-sent {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* Reason box */
+.feedback-reason-box {
+  margin-top: 4px;
+}
+.feedback-reason-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.feedback-reason-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.feedback-reason-opt {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #374151;
+}
+.feedback-reason-opt:hover { background: #e5e7eb; }
+.feedback-reason-opt-active {
+  background: #ede9fe;
+  border-color: #a78bfa;
+  color: #5b21b6;
+}
+
+.feedback-reason-actions {
+  display: flex;
+  gap: 8px;
+}
+.feedback-send {
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.feedback-send:hover { background: #5a52d5; }
+.feedback-skip {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 5px 4px;
+}
+.feedback-skip:hover { color: #6b7280; }
+
+/* Negative feedback table row */
+.internal-td-clamp {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.internal-neg-feedback {
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .feedback-buttons { flex-direction: row; }
+  .feedback-reason-options { gap: 4px; }
+  .internal-td-clamp { max-width: 140px; }
+}
