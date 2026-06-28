@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 const navItems = [
@@ -12,18 +12,24 @@ const navItems = [
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
 
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="sidebar-brand">StartTheNode</div>
+        <div className="sidebar-brand">ForgeInsights AI</div>
 
         <nav className="sidebar-nav">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+              className={({ isActive }) => 'sidebar-link' + (isActive ? ' is-active' : '')}
             >
               {item.label}
             </NavLink>
@@ -33,10 +39,10 @@ export function AppShell() {
         <div className="sidebar-footer">
           <div className="user-box">
             <strong>{user?.name}</strong>
-            <span>{user?.workspace}</span>
+            <span>{user?.workspace || user?.email}</span>
           </div>
 
-          <button className="btn btn-ghost btn-block" onClick={logout}>
+          <button className="btn btn-ghost btn-block" onClick={handleLogout}>
             Cerrar sesión
           </button>
         </div>
