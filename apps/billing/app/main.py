@@ -6,11 +6,12 @@ from app.api.extras import router as extras_router
 from app.api.questions import router as questions_router
 from app.api.files import router as files_router
 from app.api.billing import router as billing_router
+from app.api.admin_billing import router as admin_billing_router
 
 app = FastAPI(
     title="StarTheNode Billing API",
-    description="Usage limits, quota management, file handling and billing events.",
-    version="0.1.0",
+    description="Usage limits, quota management, file handling, billing events and maintenance.",
+    version="0.2.0",
 )
 
 # ---------------------------------------------------------------------------
@@ -21,6 +22,7 @@ app.include_router(extras_router)
 app.include_router(questions_router)
 app.include_router(files_router)
 app.include_router(billing_router)
+app.include_router(admin_billing_router)
 
 
 # ---------------------------------------------------------------------------
