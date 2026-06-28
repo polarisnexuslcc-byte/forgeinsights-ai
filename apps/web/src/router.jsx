@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RequireAuth } from './auth/RequireAuth';
+import { RequireGuest } from './auth/RequireGuest';
 
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -20,11 +21,19 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <LoginPage />
+    element: (
+      <RequireGuest>
+        <LoginPage />
+      </RequireGuest>
+    )
   },
   {
     path: '/signup',
-    element: <SignupPage />
+    element: (
+      <RequireGuest>
+        <SignupPage />
+      </RequireGuest>
+    )
   },
   {
     path: '/app',
