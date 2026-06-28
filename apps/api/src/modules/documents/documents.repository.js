@@ -343,3 +343,70 @@ export function markDocumentAsNeedsReview(documentId, organizationId) {
 
   return getDocumentByIdForOrganization(documentId, organizationId);
 }
+
+export function getDocumentByExternalId({
+  organizationId,
+  sourceId,
+  externalId
+}) {
+  return db.prepare(`
+    SELECT
+      id,
+      organization_id as organizationId,
+      source_id as sourceId,
+      title,
+      status,
+      checksum,
+      external_id as externalId,
+      published_at as publishedAt,
+      created_at as createdAt,
+      updated_at as updatedAt
+    FROM documents
+    WHERE organization_id = ?
+      AND source_id = ?
+      AND external_id = ?
+    LIMIT 1
+  `).get(organizationId, sourceId, externalId);
+}
+
+export function updateDocumentMetadata({
+  id,
+  organizationId,
+  title,
+  checksum,
+  publishedAt,
+  status
+}) {
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    UPDATE documents
+    SET
+      title = ?,
+      checksum = ?,
+      published_at = ?,
+      status = ?,
+      updated_at = ?
+    WHERE id = ? AND organization_id = ?
+  `).run(
+    title,
+    checksum,
+    publishedAt,
+    status,
+    now,
+    id,
+    organizationId
+  );
+
+  return getDocumentByIdForOrganization(id, organizationId);
+}
+
+export function getNextDocumentVersionNumber(documentId) {
+  const row = db.prepare(`
+    SELECT COALESCE(MAX(version_number), 0) as maxVersion
+    FROM document_versions
+    WHERE document_id = ?
+  `).get(documentId);
+
+  return (row?.maxVersion || 0) + 1;
+}
