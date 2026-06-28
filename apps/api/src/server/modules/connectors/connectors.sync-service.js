@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-import { createDocumentWithVersion } from '../../../../modules/documents/documents.service.js';
+import { upsertConnectedDocument } from '../../../../modules/documents/documents.service.js';
 import { scanFilesystemConnector } from './connectors.filesystem.js';
 import {
   createConnectorSyncRun,
@@ -39,6 +39,7 @@ export async function runConnectorSync({
   let importedCount = 0;
   let skippedCount = 0;
   let errorCount = 0;
+  let updatedCount = 0;
 
   try {
     const config = JSON.parse(connector.configJson || '{}');
@@ -47,13 +48,15 @@ export async function runConnectorSync({
       throw new Error(`Unsupported connector type: ${connector.type}`);
     }
 
-    const files = scanFilesystemConnector(config);
+    const files = scanFilesystemConnector(config, {
+      updatedAfter: connector.lastSyncedAt || null
+    });
 
     for (const file of files) {
       try {
         const checksum = checksumFile(file.path);
 
-        await createDocumentWithVersion({
+        const result = await upsertConnectedDocument({
           organizationId,
           userId,
           sourceId: connector.id,
@@ -67,7 +70,13 @@ export async function runConnectorSync({
           publishedAt: file.updatedAt
         });
 
-        importedCount += 1;
+        if (result.action === 'created') {
+          importedCount += 1;
+        } else if (result.action === 'updated') {
+          updatedCount += 1;
+        } else {
+          skippedCount += 1;
+        }
       } catch (error) {
         errorCount += 1;
       }
@@ -76,12 +85,14 @@ export async function runConnectorSync({
     finishConnectorSyncRun({
       id: syncRunId,
       status: 'success',
-      importedCount,
+      importedCount: importedCount + updatedCount,
       skippedCount,
       errorCount,
       details: {
         connectorType: connector.type,
-        scannedCount: files.length
+        scannedCount: files.length,
+        createdCount: importedCount,
+        updatedCount
       }
     });
 
@@ -90,6 +101,7 @@ export async function runConnectorSync({
     return {
       syncRunId,
       importedCount,
+      updatedCount,
       skippedCount,
       errorCount,
       scannedCount: files.length
@@ -98,7 +110,7 @@ export async function runConnectorSync({
     finishConnectorSyncRun({
       id: syncRunId,
       status: 'error',
-      importedCount,
+      importedCount: importedCount + updatedCount,
       skippedCount,
       errorCount: errorCount + 1,
       details: {
