@@ -1,0 +1,2 @@
+ALTER TABLE rag_runs ADD COLUMN provider TEXT;
+ALTER TABLE rag_runs ADD COLUMN model TEXT;
