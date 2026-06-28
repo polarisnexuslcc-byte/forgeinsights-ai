@@ -14,6 +14,13 @@ export const env = {
   AI_EMBEDDING_PROVIDER: process.env.AI_EMBEDDING_PROVIDER || 'openai',
   AI_EMBEDDING_MODEL: process.env.AI_EMBEDDING_MODEL || 'text-embedding-3-small',
 
+  AI_GATEWAY_MODE: process.env.AI_GATEWAY_MODE || 'direct',
+
+  LITELLM_BASE_URL: process.env.LITELLM_BASE_URL || 'http://localhost:4000',
+  LITELLM_API_KEY: process.env.LITELLM_API_KEY || '',
+  LITELLM_CHAT_MODEL: process.env.LITELLM_CHAT_MODEL || 'smart',
+  LITELLM_EMBEDDING_MODEL: process.env.LITELLM_EMBEDDING_MODEL || 'embed-default',
+
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
 
   AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || '',
