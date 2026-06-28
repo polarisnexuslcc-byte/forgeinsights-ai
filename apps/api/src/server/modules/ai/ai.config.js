@@ -28,4 +28,12 @@ export function validateAIConfiguration() {
   if (env.AI_PROVIDER === 'openai' && !env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai');
   }
+
+  if (env.AI_PROVIDER === 'litellm' && !env.LITELLM_BASE_URL) {
+    throw new Error('LITELLM_BASE_URL is required when AI_PROVIDER=litellm');
+  }
+
+  if (env.AI_EMBEDDING_PROVIDER === 'litellm' && !env.LITELLM_BASE_URL) {
+    throw new Error('LITELLM_BASE_URL is required when AI_EMBEDDING_PROVIDER=litellm');
+  }
 }
