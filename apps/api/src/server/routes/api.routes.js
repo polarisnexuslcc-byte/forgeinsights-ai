@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { aiAdminRouter } from '../modules/ai-admin/ai-admin.routes.js';
 import { answersRouter } from '../modules/answers/answers.routes.js';
 import { auditRouter } from '../../modules/audit/audit.routes.js';
 import { authRouter } from '../../modules/auth/auth.routes.js';
@@ -24,3 +25,4 @@ apiRouter.use('/evals', evalsRouter);
 apiRouter.use('/observability', observabilityRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/connectors', connectorsRouter);
+apiRouter.use('/ai-admin', aiAdminRouter);
