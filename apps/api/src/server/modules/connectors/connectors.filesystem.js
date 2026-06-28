@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-export function scanFilesystemConnector(config) {
+export function scanFilesystemConnector(config, options = {}) {
   const basePath = String(config?.basePath || '').trim();
 
   if (!basePath) {
@@ -13,6 +13,7 @@ export function scanFilesystemConnector(config) {
       .map((item) => String(item).toLowerCase())
   );
 
+  const updatedAfter = options.updatedAfter ? new Date(options.updatedAfter) : null;
   const files = [];
 
   function walk(currentPath) {
@@ -33,13 +34,18 @@ export function scanFilesystemConnector(config) {
       }
 
       const stats = fs.statSync(fullPath);
+      const updatedAt = stats.mtime;
+
+      if (updatedAfter && updatedAt < updatedAfter) {
+        continue;
+      }
 
       files.push({
         externalId: fullPath,
         title: entry.name,
         path: fullPath,
         sizeBytes: stats.size,
-        updatedAt: stats.mtime.toISOString()
+        updatedAt: updatedAt.toISOString()
       });
     }
   }
