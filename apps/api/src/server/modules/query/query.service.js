@@ -1,78 +1,93 @@
-import { performance } from 'node:perf_hooks';
+import { embedText } from '../ai/embeddings.js';
 import { listChunksForOrganization } from '../retrieval/retrieval.repository.js';
 import { runHybridSearch } from '../retrieval/hybrid-search.js';
 import { rerankChunks } from '../retrieval/rerank.js';
-import { embedText } from '../ai/embeddings.js';
+import { completeFromProvider, streamAnswerFromProvider } from '../ai/llm-provider.js';
 
 function buildExcerpt(text, query) {
-  const content = String(text || '').trim();
-  if (content.length <= 280) return content;
-
-  const needle = String(query || '').toLowerCase().split(/\s+/)[0] || '';
-  const idx = content.toLowerCase().indexOf(needle);
-  if (idx === -1) return content.slice(0, 280) + '...';
-
-  const start = Math.max(0, idx - 80);
-  const end = Math.min(content.length, idx + 200);
-  return (start > 0 ? '...' : '') + content.slice(start, end) + (end < content.length ? '...' : '');
+  const lower = text.toLowerCase();
+  const lowerQ = query.toLowerCase();
+  const idx = lower.indexOf(lowerQ.split(' ')[0] || '');
+  const start = Math.max(0, idx === -1 ? 0 : idx - 40);
+  return text.slice(start, start + 200).replace(/\s+/g, ' ').trim();
 }
 
-export async function answerQuery({ organizationId, question }) {
-  const t0 = performance.now();
-
-  const embedStart = performance.now();
-  const queryEmbedding = await embedText(question);
-  const embedEnd = performance.now();
-
-  const retrievalStart = performance.now();
-  const chunks = listChunksForOrganization(organizationId);
-  const { fused, lexical, dense } = runHybridSearch({
-    query: question,
-    queryEmbedding,
-    chunks,
-    topK: 20
-  });
-  const reranked = rerankChunks(question, fused, 4);
-  const retrievalEnd = performance.now();
-
-  const generationStart = performance.now();
-
-  const citations = reranked.map((chunk, index) => ({
-    id: String(index + 1),
-    label: 'Document ' + chunk.documentId,
-    documentId: chunk.documentId,
+function buildCitations(reranked) {
+  return reranked.map((chunk, i) => ({
+    id: String(i + 1),
     chunkId: chunk.id,
-    excerpt: buildExcerpt(chunk.content, question),
-    section: chunk.sectionLabel || chunk.pageLabel || 'Chunk ' + (chunk.chunkIndex + 1)
+    documentId: chunk.documentId,
+    documentTitle: chunk.documentTitle || chunk.documentId,
+    sectionLabel: chunk.sectionLabel || null,
+    pageLabel: chunk.pageLabel || null,
+    excerpt: chunk.excerpt || buildExcerpt(chunk.content, '')
   }));
+}
 
-  const answer = reranked.length
-    ? reranked
-        .map((chunk, index) => 'Fuente relevante ' + (index + 1) + ': ' + buildExcerpt(chunk.content, question) + ' [' + (index + 1) + ']')
-        .join('\n\n')
-    : 'No encontré evidencia suficiente en los documentos disponibles.';
+export async function answerQuery({ organizationId, question, history, streaming }) {
+  const perf = typeof performance !== 'undefined' ? performance : Date;
 
-  const generationEnd = performance.now();
-  const totalEnd = performance.now();
+  const embedStart = perf.now();
+  const queryEmbedding = await embedText(question);
+  const embedEnd = perf.now();
 
-  return {
+  const retrievalStart = perf.now();
+  const chunks = await listChunksForOrganization(organizationId);
+  const searchResult = runHybridSearch({ query: question, queryEmbedding, chunks, topK: 20 });
+  const reranked = rerankChunks(question, searchResult.fused, 6);
+  const retrievalEnd = perf.now();
+
+  const citations = buildCitations(reranked);
+
+  const generationStart = perf.now();
+  let answer;
+  let answerTokens = null;
+
+  if (streaming) {
+    const tokenStream = await streamAnswerFromProvider({
+      question,
+      contextChunks: reranked,
+      history: history || []
+    });
+    const collected = [];
+    for await (const token of tokenStream) {
+      collected.push(token);
+    }
+    answerTokens = collected;
+    answer = collected.join('');
+  } else {
+    answer = await completeFromProvider({
+      question,
+      contextChunks: reranked,
+      history: history || []
+    });
+  }
+  const generationEnd = perf.now();
+
+  const embeddingMs = Math.round(embedEnd - embedStart);
+  const retrievalMs = Math.round(retrievalEnd - retrievalStart);
+  const generationMs = Math.round(generationEnd - generationStart);
+  const totalMs = embeddingMs + retrievalMs + generationMs;
+
+  const result = {
     answer,
     citations,
     meta: {
-      timings: {
-        embeddingMs: embedEnd - embedStart,
-        retrievalMs: retrievalEnd - retrievalStart,
-        generationMs: generationEnd - generationStart,
-        totalMs: totalEnd - t0
-      },
+      timings: { embeddingMs, retrievalMs, generationMs, totalMs },
       retrieval: {
-        lexicalCount: lexical.length,
-        denseCount: dense.length,
-        fusedCount: fused.length,
+        lexicalCount: searchResult.lexical ? searchResult.lexical.length : 0,
+        denseCount: searchResult.dense ? searchResult.dense.length : 0,
+        fusedCount: searchResult.fused ? searchResult.fused.length : 0,
         selectedCount: reranked.length,
-        selectedChunkIds: reranked.map((chunk) => chunk.id),
-        selectedDocumentIds: [...new Set(reranked.map((chunk) => chunk.documentId))]
+        selectedChunkIds: reranked.map(c => c.id),
+        selectedDocumentIds: [...new Set(reranked.map(c => c.documentId))]
       }
     }
   };
+
+  if (answerTokens !== null) {
+    result.answerTokens = answerTokens;
+  }
+
+  return result;
 }
