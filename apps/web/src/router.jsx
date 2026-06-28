@@ -12,6 +12,7 @@ import { DashboardsPage } from './pages/DashboardsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SourcesPage } from './pages/SourcesPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
+import { QueryPage } from './pages/QueryPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -48,7 +49,8 @@ export const router = createBrowserRouter([
       { path: 'dashboards', element: <DashboardsPage /> },
       { path: 'alerts', element: <AlertsPage /> },
       { path: 'sources', element: <SourcesPage /> },
-      { path: 'integrations', element: <IntegrationsPage /> }
+      { path: 'integrations', element: <IntegrationsPage /> },
+      { path: 'query', element: <QueryPage /> }
     ]
   },
   {
