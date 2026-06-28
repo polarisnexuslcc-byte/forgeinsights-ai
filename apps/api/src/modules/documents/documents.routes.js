@@ -8,6 +8,7 @@ import {
   getDocumentTextHandler,
   ingestDocumentHandler,
   listDocumentsHandler,
+  listDocumentJobsHandler,
   reindexDocumentHandler,
   uploadDocumentFileHandler
 } from './documents.controller.js';
@@ -22,3 +23,4 @@ documentsRouter.post('/:id/reindex', requireAuth, reindexDocumentHandler);
 documentsRouter.post('/:id/upload', requireAuth, uploadSingleDocument, uploadDocumentFileHandler);
 documentsRouter.post('/:id/ingest', requireAuth, ingestDocumentHandler);
 documentsRouter.get('/:id/text', requireAuth, getDocumentTextHandler);
+documentsRouter.get('/:id/jobs', requireAuth, listDocumentJobsHandler);
