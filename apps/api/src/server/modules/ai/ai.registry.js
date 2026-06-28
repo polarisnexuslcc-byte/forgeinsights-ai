@@ -8,6 +8,10 @@ import {
   bedrockEmbedBatch
 } from './providers/bedrock.provider.js';
 import {
+  liteLLMChatCompletion,
+  liteLLMEmbedBatch
+} from './providers/litellm.provider.js';
+import {
   nvidiaChatCompletion,
   nvidiaEmbedBatch
 } from './providers/nvidia.provider.js';
@@ -20,14 +24,16 @@ const chatProviders = {
   openai: openAIChatCompletion,
   'azure-openai': azureOpenAIChatCompletion,
   bedrock: bedrockChatCompletion,
-  nvidia: nvidiaChatCompletion
+  nvidia: nvidiaChatCompletion,
+  litellm: liteLLMChatCompletion
 };
 
 const embeddingProviders = {
   openai: openAIEmbedBatch,
   'azure-openai': azureOpenAIEmbedBatch,
   bedrock: bedrockEmbedBatch,
-  nvidia: nvidiaEmbedBatch
+  nvidia: nvidiaEmbedBatch,
+  litellm: liteLLMEmbedBatch
 };
 
 export function getChatProvider(providerName = env.AI_PROVIDER) {
