@@ -2,6 +2,7 @@ import React from 'react';
 import { useAsyncData } from '../lib/query';
 import { listSources, listDocuments } from '../services/sources';
 import { LoadingBlock, ErrorBlock, EmptyBlock } from '../components/StateBlocks';
+import { DocumentUploadCard } from '../components/DocumentUploadCard';
 
 export function SourcesPage() {
   const { data, loading, error, refetch } = useAsyncData(
@@ -46,21 +47,6 @@ export function SourcesPage() {
   const sources = data?.sources || [];
   const documents = data?.documents || [];
 
-  if (!sources.length && !documents.length) {
-    return (
-      <section className="page">
-        <div className="page-header">
-          <p className="eyebrow">Sources</p>
-          <h1>Fuentes conectadas</h1>
-        </div>
-        <EmptyBlock
-          title="Todavía no hay fuentes"
-          description="Conecta un origen o sube tu primer documento para empezar."
-        />
-      </section>
-    );
-  }
-
   return (
     <section className="page">
       <div className="page-header">
@@ -69,6 +55,8 @@ export function SourcesPage() {
       </div>
 
       <div className="two-column-grid">
+        <DocumentUploadCard onUploaded={refetch} />
+
         <div className="panel-card">
           <h2 className="section-title">Fuentes</h2>
           {sources.length ? (
@@ -84,28 +72,34 @@ export function SourcesPage() {
               ))}
             </div>
           ) : (
-            <p className="muted-copy">No hay fuentes configuradas.</p>
+            <EmptyBlock
+              title="No hay fuentes configuradas"
+              description="Cuando conectes sistemas externos aparecerán aquí."
+            />
           )}
         </div>
+      </div>
 
-        <div className="panel-card">
-          <h2 className="section-title">Documentos</h2>
-          {documents.length ? (
-            <div className="list-block">
-              {documents.map((doc) => (
-                <div key={doc.id} className="list-row">
-                  <div>
-                    <strong>{doc.title}</strong>
-                    <p>{doc.mimeType || 'Documento'}</p>
-                  </div>
-                  <span className="pill">{doc.status || 'pending'}</span>
+      <div className="panel-card">
+        <h2 className="section-title">Documentos</h2>
+        {documents.length ? (
+          <div className="list-block">
+            {documents.map((doc) => (
+              <div key={doc.id} className="list-row">
+                <div>
+                  <strong>{doc.title}</strong>
+                  <p>{doc.mimeType || doc.type || 'Documento'}</p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="muted-copy">No hay documentos cargados.</p>
-          )}
-        </div>
+                <span className="pill">{doc.status || 'pending'}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyBlock
+            title="Todavía no hay documentos"
+            description="Sube tu primer documento para iniciar la base de conocimiento."
+          />
+        )}
       </div>
     </section>
   );
