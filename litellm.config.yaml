@@ -1,21 +1,41 @@
 model_list:
-  - model_name: smart
+  - model_name: smart-primary
     litellm_params:
       model: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0
 
-  - model_name: fast
+  - model_name: smart-fallback
     litellm_params:
       model: openai/gpt-4.1-mini
       api_key: os.environ/OPENAI_API_KEY
 
-  - model_name: embed-default
+  - model_name: fast-primary
+    litellm_params:
+      model: openai/gpt-4.1-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: fast-fallback
+    litellm_params:
+      model: bedrock/anthropic.claude-3-haiku-20240307-v1:0
+
+  - model_name: embed-primary
     litellm_params:
       model: openai/text-embedding-3-small
       api_key: os.environ/OPENAI_API_KEY
 
-  - model_name: embed-bedrock
+  - model_name: embed-fallback
     litellm_params:
       model: bedrock/amazon.titan-embed-text-v2:0
+
+router_settings:
+  fallbacks:
+    - {"smart-primary": ["smart-fallback"]}
+    - {"fast-primary": ["fast-fallback"]}
+    - {"embed-primary": ["embed-fallback"]}
+
+  num_retries: 1
+  timeout: 30
+  redis_host: "redis"
+  redis_port: 6379
 
 litellm_settings:
   set_verbose: false
