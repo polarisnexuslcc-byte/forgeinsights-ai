@@ -5,6 +5,7 @@ from app.api.usage import router as usage_router
 from app.api.extras import router as extras_router
 from app.api.questions import router as questions_router
 from app.api.files import router as files_router
+from app.api.billing import router as billing_router
 
 app = FastAPI(
     title="StarTheNode Billing API",
@@ -19,6 +20,7 @@ app.include_router(usage_router)
 app.include_router(extras_router)
 app.include_router(questions_router)
 app.include_router(files_router)
+app.include_router(billing_router)
 
 
 # ---------------------------------------------------------------------------
