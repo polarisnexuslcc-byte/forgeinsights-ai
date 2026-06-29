@@ -30,3 +30,8 @@ class FileListItem(BaseModel):
 class FileListResponse(BaseModel):
     items: List[FileListItem]
     total: int
+
+
+class FileDeleteResponse(BaseModel):
+    success: bool
+    file_id: str
