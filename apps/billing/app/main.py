@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
+
 from app.core.exceptions import AppError
 from app.core.error_handlers import (
     app_error_handler,
@@ -9,6 +10,7 @@ from app.core.error_handlers import (
     unhandled_exception_handler,
 )
 
+from app.api.auth import router as auth_router
 from app.api.usage import router as usage_router
 from app.api.extras import router as extras_router
 from app.api.questions import router as questions_router
@@ -24,6 +26,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
+app.include_router(auth_router)
 app.include_router(usage_router)
 app.include_router(extras_router)
 app.include_router(questions_router)
