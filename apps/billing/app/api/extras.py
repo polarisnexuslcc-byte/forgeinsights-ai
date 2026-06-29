@@ -1,45 +1,38 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.deps.auth import get_current_context, CurrentContext
+from app.deps.auth import get_current_member
+from app.models.organization_member import OrganizationMember
 from app.services.extra_credit_service import ExtraCreditService
-from app.schemas.extra import ExtraStatusResponse, ExtraCheckoutLinkResponse
+from app.schemas.extra import ExtraStatusResponse, CheckoutLinkResponse
 
-router = APIRouter(prefix="/api/org/me/extras", tags=["extras"])
+router = APIRouter()
 
+# WordPress Paid Memberships Pro level for extra questions
 WP_CHECKOUT_BASE = "https://starthenode.xyz/membership-checkout/"
-
-EXTRA_LEVEL_MAP = {
-    "basic": "4",
-    "medium": "5",
-    "enterprise": "6",
-}
+EXTRA_QUESTIONS_LEVEL = 4
 
 
-@router.get("/status", response_model=ExtraStatusResponse)
+@router.get("/api/org/me/extra-status", response_model=ExtraStatusResponse)
 def get_extra_status(
-    ctx: CurrentContext = Depends(get_current_context),
+    member: OrganizationMember = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    extra_remaining = ExtraCreditService.get_extra_remaining(db, ctx.organization_id)
-    can_buy = ExtraCreditService.can_buy_extra(db, ctx.organization_id)
+    org_id = member.organization_id
+    extra_remaining = ExtraCreditService.get_extra_remaining(db, org_id)
+    checkout_url = f"{WP_CHECKOUT_BASE}?level={EXTRA_QUESTIONS_LEVEL}&org={org_id}"
     return ExtraStatusResponse(
-        extra_questions_remaining=extra_remaining,
-        can_buy_extra=can_buy,
+        organization_id=org_id,
+        extra_questions_available=extra_remaining,
+        can_buy_extra=True,
+        checkout_url=checkout_url,
     )
 
 
-@router.post("/checkout-link", response_model=ExtraCheckoutLinkResponse)
-def get_checkout_link(
-    ctx: CurrentContext = Depends(get_current_context),
-    db: Session = Depends(get_db),
+@router.post("/api/org/me/extra-checkout", response_model=CheckoutLinkResponse)
+def get_extra_checkout_link(
+    member: OrganizationMember = Depends(get_current_member),
 ):
-    can_buy = ExtraCreditService.can_buy_extra(db, ctx.organization_id)
-    if not can_buy:
-        raise HTTPException(status_code=400, detail="Extra questions still remaining. Cannot purchase more.")
-
-    org_id_str = str(ctx.organization_id)
-    level = "4"
-
-    real_url = WP_CHECKOUT_BASE + "?level=" + level + "&org=" + org_id_str
-    return ExtraCheckoutLinkResponse(url=real_url)
+    org_id = member.organization_id
+    checkout_url = f"{WP_CHECKOUT_BASE}?level={EXTRA_QUESTIONS_LEVEL}&org={org_id}"
+    return CheckoutLinkResponse(checkout_url=checkout_url)
