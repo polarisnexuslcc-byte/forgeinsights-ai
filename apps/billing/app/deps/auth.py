@@ -1,45 +1,46 @@
 import uuid
-from dataclasses import dataclass
 from fastapi import Header, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 from app.core.database import get_db
 from app.models.organization_member import OrganizationMember
+from app.models.organization import Organization
 
 
-@dataclass
-class CurrentContext:
-    user_id: uuid.UUID
-    organization_id: uuid.UUID
-    role: str
-
-
-def get_current_context(
-    x_user_id: str | None = Header(default=None),
-    x_organization_id: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> CurrentContext:
-    if not x_user_id or not x_organization_id:
-        raise HTTPException(status_code=401, detail="Missing auth headers")
-
+def get_current_user_id(x_user_id: str = Header(...)) -> uuid.UUID:
     try:
-        user_id = uuid.UUID(x_user_id)
-        organization_id = uuid.UUID(x_organization_id)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid auth headers")
+        return uuid.UUID(x_user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-User-Id header")
 
-    stmt = select(OrganizationMember).where(
-        OrganizationMember.user_id == user_id,
-        OrganizationMember.organization_id == organization_id,
-        OrganizationMember.status == "active",
+
+def get_current_organization_id(x_organization_id: str = Header(...)) -> uuid.UUID:
+    try:
+        return uuid.UUID(x_organization_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-Organization-Id header")
+
+
+def get_current_member(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    organization_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+) -> OrganizationMember:
+    # SQLite stores UUIDs as strings, so cast to str for comparison
+    member = (
+        db.query(OrganizationMember)
+        .filter(
+            OrganizationMember.user_id == str(user_id),
+            OrganizationMember.organization_id == str(organization_id),
+            OrganizationMember.status == "active",
+        )
+        .first()
     )
-    member = db.execute(stmt).scalar_one_or_none()
-
     if not member:
         raise HTTPException(status_code=403, detail="User does not belong to organization")
+    return member
 
-    return CurrentContext(
-        user_id=user_id,
-        organization_id=organization_id,
-        role=member.role,
-    )
+
+def require_owner(member: OrganizationMember = Depends(get_current_member)) -> OrganizationMember:
+    if member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Owner or admin role required")
+    return member
