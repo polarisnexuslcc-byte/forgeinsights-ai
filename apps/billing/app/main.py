@@ -1,8 +1,9 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 
-from app.core.exceptions import AppError
 from app.core.error_handlers import (
     app_error_handler,
     http_exception_handler,
@@ -19,9 +20,17 @@ from app.api.billing import router as billing_router
 from app.api.admin_billing import router as admin_billing_router
 from app.api.admin_org import router as admin_org_router
 
-app = FastAPI(title="StarTheNode Billing Service", version="0.4.0")
+APP_MODE = os.getenv("APP_MODE", "production")
 
-app.add_exception_handler(AppError, app_error_handler)
+app = FastAPI(
+    title="StarTheNode Billing Service",
+    version="0.4.0",
+    docs_url=None if APP_MODE == "production" else "/docs",
+    redoc_url=None if APP_MODE == "production" else "/redoc",
+    openapi_url=None if APP_MODE == "production" else "/openapi.json",
+)
+
+app.add_exception_handler(Exception, app_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
@@ -34,7 +43,6 @@ app.include_router(files_router)
 app.include_router(billing_router)
 app.include_router(admin_billing_router)
 app.include_router(admin_org_router)
-
 
 @app.get("/health")
 def health():
