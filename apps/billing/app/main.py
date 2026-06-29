@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-
+from starlette.exceptions import HTTPException
 from app.core.exceptions import AppError
 from app.core.error_handlers import (
     app_error_handler,
