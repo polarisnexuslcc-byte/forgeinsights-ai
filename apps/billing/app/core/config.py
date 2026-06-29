@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:////opt/stn/apps/billing/billing.db"
     WEBHOOK_SECRET: str = "change-this-secret"
@@ -10,8 +11,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.4.0"
 
     # JWT auth
-    SECRET_KEY: str = "change-this-jwt-secret"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Must be a 64-char hex string (secrets.token_hex(32)) set in .env
+    # Do NOT use a weak default in production.
+    SECRET_KEY: str = "CHANGE-ME-set-a-64-char-random-hex-in-dotenv"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # Plan limits
     BASIC_FILE_LIMIT: int = 10
@@ -36,8 +39,10 @@ class Settings(BaseSettings):
     def access_token_expire_minutes(self) -> int:
         return self.ACCESS_TOKEN_EXPIRE_MINUTES
 
+
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()
