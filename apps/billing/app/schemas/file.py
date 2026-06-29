@@ -1,31 +1,32 @@
 from pydantic import BaseModel
+from typing import Optional, List
 from datetime import datetime
-from uuid import UUID
 
 
 class FileUploadResponse(BaseModel):
-    id: UUID
+    id: str
     filename: str
-    mime_type: str
     size_bytes: int
-    storage_path: str
-    processing_status: str
+    mime_type: Optional[str] = None
+    status: str
     created_at: datetime
 
-    model_config = {"from_attributes": True}
-
-
-class FileDeleteResponse(BaseModel):
-    success: bool
-    file_id: UUID
+    class Config:
+        from_attributes = True
 
 
 class FileListItem(BaseModel):
-    id: UUID
+    id: str
     filename: str
-    mime_type: str
     size_bytes: int
-    processing_status: str
+    mime_type: Optional[str] = None
+    status: str
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
+
+
+class FileListResponse(BaseModel):
+    items: List[FileListItem]
+    total: int
