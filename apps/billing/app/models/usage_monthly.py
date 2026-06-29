@@ -1,50 +1,21 @@
 import uuid
-from sqlalchemy import String, Integer, BigInteger, DateTime, ForeignKey, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from datetime import datetime
+from sqlalchemy import String, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
-from app.core.database import Base
+from app.db.base import Base
 
 
 class UsageMonthly(Base):
+    """Monthly usage tracking per organization (SQLite-compatible, no PostgreSQL UUID)."""
     __tablename__ = "usage_monthly"
-    __table_args__ = (
-        UniqueConstraint(
-            "organization_id",
-            "period_key",
-            name="uq_usage_monthly_org_period",
-        ),
-    )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    # Format: "YYYY-MM"
-    period_key: Mapped[str] = mapped_column(String(7), nullable=False)
-
-    base_questions_used: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    extra_questions_used: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    files_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    storage_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-
-    created_at: Mapped = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-    def __repr__(self) -> str:
-        return f"<UsageMonthly org={self.organization_id} period={self.period_key}>"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    # No ForeignKey constraint - SQLite compatibility
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    questions_used: Mapped[int] = mapped_column(Integer, default=0)
+    files_count: Mapped[int] = mapped_column(Integer, default=0)
+    storage_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
