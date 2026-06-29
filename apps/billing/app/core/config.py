@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     APP_NAME: str = "StarTheNode Billing"
     APP_VERSION: str = "0.4.0"
 
+    # JWT auth
+    SECRET_KEY: str = "change-this-jwt-secret"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     # Plan limits
     BASIC_FILE_LIMIT: int = 10
     BASIC_STORAGE_MB: int = 100
@@ -23,6 +27,14 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "ignore"
+
+    @property
+    def secret_key(self) -> str:
+        return self.SECRET_KEY
+
+    @property
+    def access_token_expire_minutes(self) -> int:
+        return self.ACCESS_TOKEN_EXPIRE_MINUTES
 
 @lru_cache()
 def get_settings() -> Settings:
